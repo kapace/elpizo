@@ -8,3 +8,5 @@ websockets
 coloredlogs
 aiohttp
 networkx
+numpy
+

@@ -12,6 +12,7 @@ from elpizo.models.items.equipment import legs_items
 from elpizo.models.items.equipment import torso_items
 from elpizo.models.items.equipment import weapons
 from elpizo.util import green
+from elpizo.tools.terrain_gen import TerrainGenerator
 
 
 def initdb(app):
@@ -29,6 +30,9 @@ def initdb(app):
 
   windvale = realm.Realm(name="Windvale", size=geometry.Vector2(128, 128))
   app.store.realms.create(windvale)
+
+  tg = TerrainGenerator() 
+  tg.generate_terrain(windvale.size.x//realm.Region.SIZE, windvale.size.y//realm.Region.SIZE)
 
   for base_y in range(0, windvale.size.y, realm.Region.SIZE):
     for base_x in range(0, windvale.size.x, realm.Region.SIZE):
@@ -60,48 +64,16 @@ def initdb(app):
 
           tiles.append(tile)
 
-      platform_tiles = [-1] * (realm.Region.SIZE * realm.Region.SIZE)
-      platform_tiles[4 + 4 * realm.Region.SIZE] = 34
-      platform_tiles[5 + 4 * realm.Region.SIZE] = 20
-      platform_tiles[6 + 4 * realm.Region.SIZE] = 36
-      platform_tiles[4 + 5 * realm.Region.SIZE] = 16
-      platform_tiles[5 + 5 * realm.Region.SIZE] = 0
-      platform_tiles[6 + 5 * realm.Region.SIZE] = 24
-      platform_tiles[4 + 6 * realm.Region.SIZE] = 40
-      platform_tiles[5 + 6 * realm.Region.SIZE] = 28
-      platform_tiles[6 + 6 * realm.Region.SIZE] = 38
-
-      wall_tiles = [-1] * (realm.Region.SIZE * realm.Region.SIZE)
-      wall_tiles[4 + 7 * realm.Region.SIZE] = 46
-      wall_tiles[6 + 7 * realm.Region.SIZE] = 46
-
+      island_tiles = tg.get_region_island(base_x, base_y, realm.Region.SIZE)
+      grass_tiles = tg.get_region_grass(base_x, base_y, realm.Region.SIZE)
       passabilities = [0b1111] * (realm.Region.SIZE * realm.Region.SIZE)
-      passabilities[4 + 3 * realm.Region.SIZE] = 0b1110
-      passabilities[5 + 3 * realm.Region.SIZE] = 0b1110
-      passabilities[6 + 3 * realm.Region.SIZE] = 0b1110
-      passabilities[3 + 4 * realm.Region.SIZE] = 0b1101
-      passabilities[4 + 4 * realm.Region.SIZE] = 0b0011
-      passabilities[5 + 4 * realm.Region.SIZE] = 0b1011
-      passabilities[6 + 4 * realm.Region.SIZE] = 0b1001
-      passabilities[7 + 4 * realm.Region.SIZE] = 0b0111
-      passabilities[3 + 5 * realm.Region.SIZE] = 0b1101
-      passabilities[4 + 5 * realm.Region.SIZE] = 0b0111
-      passabilities[6 + 5 * realm.Region.SIZE] = 0b1101
-      passabilities[7 + 5 * realm.Region.SIZE] = 0b0111
-      passabilities[3 + 6 * realm.Region.SIZE] = 0b1101
-      passabilities[4 + 6 * realm.Region.SIZE] = 0b0110
-      passabilities[6 + 6 * realm.Region.SIZE] = 0b1100
-      passabilities[7 + 6 * realm.Region.SIZE] = 0b0111
-      passabilities[4 + 7 * realm.Region.SIZE] = 0b0000
-      passabilities[6 + 7 * realm.Region.SIZE] = 0b0000
 
       region = realm.Region(
           realm_id=windvale.id, location=geometry.Vector2(base_x, base_y),
           passabilities=passabilities,
-          layers=[realm.Layer(terrain="grassland", tiles=tiles),
-                  realm.Layer(terrain="dirt", tiles=platform_tiles),
-                  realm.Layer(terrain="grassland", tiles=platform_tiles),
-                  realm.Layer(terrain="dirt_wall", tiles=wall_tiles)],
+          layers=[realm.Layer(terrain="water", tiles=tiles),
+                  realm.Layer(terrain="dirt", tiles=island_tiles),
+                  realm.Layer(terrain="grassland", tiles=grass_tiles)],
           entities=set())
       # We don't use create() here because we've already assigned an id.
       windvale.regions.save(region)
@@ -117,7 +89,7 @@ def initdb(app):
       direction=1,
       health=10,
       realm_id=windvale.id,
-      location=geometry.Vector3(0, 0, 0),
+      location=geometry.Vector3(64, 64, 0),
       inventory=set(),
       torso_item=app.store.create_item(torso_items.WhiteLongsleeveShirt()),
       legs_item=app.store.create_item(legs_items.TealPants()),
