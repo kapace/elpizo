@@ -1,6 +1,8 @@
 module util from "util";
 
-export var has = Function.prototype.call.bind(Object.prototype.hasOwnProperty);
+export function has(obj, field) {
+  return Object.prototype.hasOwnProperty.call(obj, field);
+}
 
 export function extend(dest) {
   // NOTE: jstransform miscompiles ...src, so we have to do it manually here.
