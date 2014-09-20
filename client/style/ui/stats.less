@@ -34,22 +34,37 @@
   }
 
   .health {
-    list-style: none;
+    position: relative;
+    padding: 2px;
+    padding-bottom: 4px;
+    width: 200px;
 
-    padding: 2px 0;
-    margin: 0;
-    margin-left: -8px;
+    background: #fff;
+    border-radius: 2px;
 
-    .tick {
-      width: 16px;
+    .value {
       height: 16px;
+      transition: width 0.1s;
 
-      background: #f77;
+      background: #f55;
       border-radius: 2px;
-      box-shadow: 0 2px 0 darken(#f77, 30%);
+      box-shadow: 0 2px 0 darken(#f55, 30%);
+    }
 
-      float: left;
-      margin-left: 8px;
+    .caption {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 100%;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      font-size: 12px;
+      color: #faa;
+      text-shadow: 0 1px 0 darken(#faa, 30%);
     }
   }
 }

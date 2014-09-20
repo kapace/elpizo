@@ -224,17 +224,25 @@ export class GraphicsRenderer extends events.EventEmitter {
     albedoCtx.clearRect(0, 0, composite.width, composite.height);
     albedoCtx.drawImage(this.ensureBackBuffer("terrain"), 0, 0);
     albedoCtx.drawImage(this.ensureBackBuffer("entity"), 0, 0);
-    albedoCtx.globalAlpha = 0.5;
+    albedoCtx.globalAlpha = 0.25;
     albedoCtx.drawImage(this.ensureBackBuffer("xray"), 0, 0);
     albedoCtx.globalAlpha = 1.0;
     albedoCtx.restore();
 
+    var overlay = this.ensureBackBuffer("overlay");
+
     var compositeCtx = this.prepareContext(composite);
     compositeCtx.save();
     compositeCtx.clearRect(0, 0, composite.width, composite.height);
+
     compositeCtx.drawImage(albedo, 0, 0);
+
     compositeCtx.globalCompositeOperation = "multiply";
     compositeCtx.drawImage(illumination, 0, 0);
+
+    compositeCtx.globalCompositeOperation = "source-over";
+    compositeCtx.drawImage(overlay, 0, 0);
+
     compositeCtx.restore();
 
     var ctx = this.prepareContext(this.canvas);
@@ -369,6 +377,11 @@ export class GraphicsRenderer extends events.EventEmitter {
     xrayCtx.save();
     xrayCtx.clearRect(0, 0, xrayCanvas.width, xrayCanvas.height);
 
+    var overlayCanvas = this.ensureBackBuffer("overlay");
+    var overlayCtx = this.prepareContext(overlayCanvas);
+    overlayCtx.save();
+    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
     var terrainCanvas = this.ensureBackBuffer("terrain");
     var terrainCtx = this.prepareContext(terrainCanvas);
 
@@ -376,8 +389,8 @@ export class GraphicsRenderer extends events.EventEmitter {
       // Entities are allowed to draw to the terrain canvas (if they really
       // want to.)
       this.renderEntity(entity, me, terrainCtx, "terrain");
-
       this.renderEntity(entity, me, ctx, "albedo");
+      this.renderEntity(entity, me, overlayCtx, "overlay");
       this.renderEntity(entity, me, xrayCtx, "xray");
     });
     ctx.restore();
@@ -577,6 +590,24 @@ function drawAutotileGrid(renderer, grid, autotile, ctx) {
   }
 }
 
+function roundedRect(ctx, x, y, w, h, r) {
+  if (w < 2 * r) {
+    r = w / 2;
+  }
+
+  if (h < 2 * r) {
+    r = h / 2;
+  }
+
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+  ctx.closePath();
+}
+
 function drawAutotileRectangle(renderer, rect, autotile, ctx) {
   var g = new grid.Grid(rect.width, rect.height);
   g.fill(true);
@@ -679,12 +710,33 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
             sprites[name][state][direction]
                 .render(this.renderer.resources, this.ctx, elapsed);
         });
+        break;
 
+      case "overlay":
         // Render name card.
-        this.ctx.save();
-        this.ctx.translate(16, -entity.getHeight() * 32 + 10);
+        var healthBarWidth = entity.bbox.width * GraphicsRenderer.TILE_SIZE *
+            1.25;
 
-        var baseWidth = this.ctx.measureText(entity.name).width;
+        this.ctx.save();
+        this.ctx.translate(
+            Math.floor(-(healthBarWidth - entity.bbox.width *
+                GraphicsRenderer.TILE_SIZE) / 2),
+            -(entity.getHeight() - 1) * GraphicsRenderer.TILE_SIZE - 6);
+
+        this.ctx.fillStyle = "white";
+        this.ctx.fillRect(-1, -1, healthBarWidth + 2, 6);
+
+        this.ctx.fillStyle = "#b00";
+        this.ctx.fillRect(0, 1,
+                          Math.floor(entity.health / 100 * healthBarWidth), 3);
+
+        this.ctx.fillStyle = "#f55";
+        this.ctx.fillRect(0, 0,
+                          Math.floor(entity.health / 100 * healthBarWidth), 3);
+
+        this.ctx.restore();
+
+        /*var baseWidth = this.ctx.measureText(entity.name).width;
         var width = baseWidth + 8;
 
         this.ctx.fillStyle = "rgb(255, 255, 255)";
@@ -697,7 +749,7 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
             .darken(10).hex();
         this.ctx.fillStyle = textColor;
         this.ctx.fillText(entity.name, 0, 10);
-        this.ctx.restore();
+        this.ctx.restore();*/
         break;
     }
 
