@@ -175,7 +175,7 @@ export class Game extends events.EventEmitter {
            x += realm.Region.SIZE) {
         var key = [x, y].join(",");
 
-        if (objects.hasOwnProp.call(toRemove, key)) {
+        if (objects.has(toRemove, key)) {
           delete toRemove[key];
         } else {
           toAdd[key] = true;

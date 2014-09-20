@@ -60,7 +60,7 @@ export class GraphicsRenderer extends events.EventEmitter {
   }
 
   ensureBackBuffer(name) {
-    if (!objects.hasOwnProp.call(this.backBuffers, name)) {
+    if (!objects.has(this.backBuffers, name)) {
       var backBuffer = document.createElement("canvas");
       backBuffer.width = this.canvas.width;
       backBuffer.height = this.canvas.height;
@@ -313,7 +313,7 @@ export class GraphicsRenderer extends events.EventEmitter {
 
         // If this region hasn't been rendered yet, then we render it and add it
         // to the cache.
-        if (!objects.hasOwnProp.call(this.regionTerrainCache, key)) {
+        if (!objects.has(this.regionTerrainCache, key)) {
           this.regionTerrainCache[key] =
               this.renderRegionTerrainAsBuffer(region);
         }

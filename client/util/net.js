@@ -45,7 +45,7 @@ export class Transport extends events.EventEmitter {
 var PACKETS = {};
 Object.keys(packets).forEach((name) => {
   var cls = packets[name];
-  if (!objects.hasOwnProp.call(cls.$options, "(packet_type)")) {
+  if (!objects.has(cls.$options, "(packet_type)")) {
     return;
   }
 

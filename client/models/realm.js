@@ -24,7 +24,7 @@ export class Realm {
 
   getRegionAt(location) {
     var key = [location.x, location.y].join(",");
-    return objects.hasOwnProp.call(this.regions, key) ? this.regions[key] : null;
+    return objects.has(this.regions, key) ? this.regions[key] : null;
   }
 
   getAllRegions() {
@@ -98,7 +98,7 @@ export class Realm {
   }
 
   getEntity(id) {
-    return objects.hasOwnProp.call(this.entities, id) ? this.entities[id] : null;
+    return objects.has(this.entities, id) ? this.entities[id] : null;
   }
 
   getAllEntities() {

@@ -121,7 +121,7 @@ export var Log = React.createClass({
       var commandName = parts[0].trim().toLowerCase();
       var rest = parts.slice(1).join(" ").trim();
 
-      if (!objects.hasOwnProp.call(COMMANDS, commandName)) {
+      if (!objects.has(COMMANDS, commandName)) {
         this.props.game.log.push(InfoMessageEntry({
           text: "No such command: " + commandName
         }))
