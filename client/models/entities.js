@@ -1,6 +1,7 @@
 module geometry from "client/models/geometry";
 module itemRegistry from "client/models/items/registry";
 module packets from "client/protos/packets";
+module realm from "client/models/realm";
 module input from "client/util/input";
 module timing from "client/util/timing";
 
@@ -68,11 +69,12 @@ export class Building extends Entity {
   constructor(id, message) {
     super(id, message);
     message = message[".Building.ext"];
+
     this.doorLocation = message.doorLocation;
   }
 
   getTitle() {
-    return "Marius's Tavern";
+    return "Building at " + this.location.toString();
   }
 
   getAdjacentInteractions() {
@@ -150,6 +152,14 @@ export class Tree extends Entity {
 
     this.species = message.species;
     this.growthStage = message.growthStage;
+  }
+
+  getGrowthStageName() {
+    return {
+        0: "seedling",
+        1: "sapling",
+        2: "mature"
+    }[this.growthStage];
   }
 
   getTitle() {

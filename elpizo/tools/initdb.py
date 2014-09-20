@@ -163,8 +163,7 @@ def initdb(app):
   app.store.entities.create(entities.Building(
       location=geometry.Vector3(1, 10, 0),
       door_location=1,
-      realm_id=windvale.id,
-      interior_realm_id=windvale.id))
+      realm_id=windvale.id))
 
   app.store.entities.create(entities.Building(
       location=geometry.Vector3(1, 13, 0),

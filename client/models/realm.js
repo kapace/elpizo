@@ -116,8 +116,7 @@ export class Region {
   constructor(location, message) {
     this.location = location;
     this.realmId = message.realmId;
-    this.layers = message.layers.map((layer) =>
-        new Layer(layer));
+    this.layers = message.layers.map((layer) => new Layer(layer));
     this.passabilities = new grid.Grid(Region.SIZE, Region.SIZE,
                                        message.passabilities);
   }

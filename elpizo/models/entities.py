@@ -271,7 +271,7 @@ class NPC(Actor):
 class Building(Entity):
   FIELDS = [
       record.Field("door_location", record.Scalar,
-                   extension=entities_pb2.Building.ext)
+                   extension=entities_pb2.Building.ext),
   ]
 
   TYPE = "building"

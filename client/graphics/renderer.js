@@ -61,10 +61,10 @@ export class GraphicsRenderer extends events.EventEmitter {
 
   ensureBackBuffer(name) {
     if (!objects.hasOwnProp.call(this.backBuffers, name)) {
-      var backbuffer = document.createElement("canvas");
-      backbuffer.width = this.canvas.width;
-      backbuffer.height = this.canvas.height;
-      this.backBuffers[name] = backbuffer;
+      var backBuffer = document.createElement("canvas");
+      backBuffer.width = this.canvas.width;
+      backBuffer.height = this.canvas.height;
+      this.backBuffers[name] = backBuffer;
     }
     return this.backBuffers[name];
   }
@@ -168,6 +168,10 @@ export class GraphicsRenderer extends events.EventEmitter {
 
   refit() {
     this.setScreenViewportSize(window.innerWidth, window.innerHeight);
+
+    // Clobber all back-buffers.
+    this.backBuffers = {};
+
     this.emit("refit", this.sBounds);
   }
 
@@ -365,9 +369,16 @@ export class GraphicsRenderer extends events.EventEmitter {
     xrayCtx.save();
     xrayCtx.clearRect(0, 0, xrayCanvas.width, xrayCanvas.height);
 
+    var terrainCanvas = this.ensureBackBuffer("terrain");
+    var terrainCtx = this.prepareContext(terrainCanvas);
+
     sortedEntities.forEach((entity) => {
-      this.renderEntity(entity, me, ctx, {pass: "albedo"});
-      this.renderEntity(entity, me, xrayCtx, {pass: "xray"});
+      // Entities are allowed to draw to the terrain canvas (if they really
+      // want to.)
+      this.renderEntity(entity, me, terrainCtx, "terrain");
+
+      this.renderEntity(entity, me, ctx, "albedo");
+      this.renderEntity(entity, me, xrayCtx, "xray");
     });
     ctx.restore();
     xrayCtx.restore();
@@ -380,9 +391,9 @@ export class GraphicsRenderer extends events.EventEmitter {
                               illuminationCanvas.width,
                               illuminationCanvas.height);
     // We run the illumination pass separately as we'd like to have access to
-    // albedo.
+    // albedo during illumination.
     sortedEntities.forEach((entity) => {
-      this.renderEntity(entity, me, illuminationCtx, {pass: "illumination"});
+      this.renderEntity(entity, me, illuminationCtx, "illumination");
     })
     illuminationCtx.restore();
   }
@@ -411,6 +422,8 @@ export class GraphicsRenderer extends events.EventEmitter {
     var halfTileSize = GraphicsRenderer.TILE_SIZE / 2;
 
     var ctx = this.prepareContext(canvas);
+
+    // TODO: zone rendering
 
     for (var ry = 0; ry < realm.Region.SIZE; ++ry) {
       for (var rx = 0; rx < realm.Region.SIZE; ++rx) {
@@ -480,13 +493,13 @@ export class GraphicsRenderer extends events.EventEmitter {
     return canvas;
   }
 
-  renderEntity(entity, me, ctx, options) {
+  renderEntity(entity, me, ctx, pass) {
     var sOffset = this.toScreenCoords(
         entity.location.offset(this.topLeft.negate()));
 
     ctx.save();
     ctx.translate(sOffset.x, sOffset.y);
-    entity.accept(new GraphicsRendererVisitor(this, me, ctx, options));
+    entity.accept(new GraphicsRendererVisitor(this, me, ctx, pass));
     ctx.restore();
   }
 }
@@ -601,17 +614,16 @@ export function getActorSpriteNames(actor) {
   return names;
 }
 
-
 class GraphicsRendererVisitor extends entities.EntityVisitor {
-  constructor(renderer, me, ctx, options) {
+  constructor(renderer, me, ctx, pass) {
     this.renderer = renderer;
     this.me = me;
     this.ctx = ctx;
-    this.options = options || {};
+    this.pass = pass;
   }
 
   visitEntity(entity) {
-    if (this.options.pass === "illumination") {
+    if (this.pass === "illumination") {
       return;
     }
 
@@ -654,7 +666,7 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
     var spriteNames = getActorSpriteNames(entity);
 
-    switch (this.options.pass) {
+    switch (this.pass) {
       case "albedo":
         spriteNames.forEach((name) => {
             sprites[name][state][direction]
@@ -693,7 +705,7 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
   }
 
   visitDrop(entity) {
-    if (this.options.pass === "albedo") {
+    if (this.pass === "albedo") {
       sprites[["item", entity.item.type].join(".")]
           .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
     }
@@ -702,14 +714,8 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
   }
 
   visitTree(entity) {
-    if (this.options.pass === "albedo") {
-      var stage = {
-          0: "seedling",
-          1: "sapling",
-          2: "mature"
-      }[entity.growthStage];
-
-      sprites[["tree", entity.species, stage].join(".")]
+    if (this.pass === "albedo") {
+      sprites[["tree", entity.species, entity.getGrowthStageName()].join(".")]
           .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
     }
 
@@ -735,7 +741,12 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
       drawInterior = t !== 0;
     }
 
-    switch (this.options.pass) {
+    switch (this.pass) {
+      case "terrain":
+        drawAutotileRectangle(this.renderer, entity.bbox, sprites["tile.dirt"],
+                              this.ctx);
+        break;
+
       case "albedo":
         if (drawExterior) {
           this.ctx.globalAlpha = 1 - t;
@@ -765,6 +776,8 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
       case "illumination":
         if (drawInterior) {
+          // Compute interior illumination mask by excluding portions of the
+          // albedo buffer.
           var buildingInteriorIllumination =
               this.renderer.ensureBackBuffer("buildingInteriorIllumination");
 
@@ -779,7 +792,8 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
           var sOffset = this.renderer.toScreenCoords(entity.location);
 
           buildingInteriorIlluminationCtx.save();
-          buildingInteriorIlluminationCtx.globalCompositeOperation = "source-out";
+          buildingInteriorIlluminationCtx.globalCompositeOperation =
+              "source-out";
 
           var sOffset2 = this.renderer.toScreenCoords(entity.location.offset(
               this.renderer.topLeft.negate()));
@@ -795,7 +809,8 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
               sBboxOffset.x, sBboxOffset.y, sBboxSize.x, sBboxSize.y);
           buildingInteriorIlluminationCtx.restore();
 
-          var viewportOffset = this.renderer.toScreenCoords(this.renderer.topLeft);
+          var viewportOffset = this.renderer.toScreenCoords(
+              this.renderer.topLeft);
 
           this.ctx.drawImage(buildingInteriorIllumination,
                              viewportOffset.x - sOffset.x,
