@@ -8,7 +8,7 @@ export var Overlay = React.createClass({
     var realm = this.props.game.realm;
     var renderer = this.props.game.graphicsRenderer;
 
-    var position = renderer.toScreenCoords(renderer.topLeft);
+    var position = renderer.toScreenCoords(renderer.leftTop);
 
     var components = Object.keys(renderer.components).map((k) =>
         renderer.components[k]);

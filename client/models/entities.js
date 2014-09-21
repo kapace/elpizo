@@ -332,7 +332,7 @@ export class Actor extends Entity {
 }
 
 Actor.BASE_SPEED = 4;
-Actor.TURN_TIME = 0.1;
+Actor.TURN_TIME = 0.01;
 
 export class Player extends Actor {
   accept(visitor) {

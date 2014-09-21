@@ -124,12 +124,16 @@ export class Rectangle {
     return new Rectangle(this.left, this.top, this.width, this.height);
   }
 
-  getTopLeft() {
+  getLeftTop() {
     return new Vector2(this.left, this.top);
   }
 
-  getBottomRight() {
+  getRightBottom() {
     return new Vector2(this.getRight(), this.getBottom());
+  }
+
+  getSize() {
+    return new Vector2(this.width, this.height);
   }
 
   getRight() {

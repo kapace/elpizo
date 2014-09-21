@@ -27,13 +27,14 @@ export class GraphicsRenderer extends events.EventEmitter {
     parent.appendChild(this.el);
 
     this.backBuffers = {};
+    this.entityBuffers = {};
 
     this.canvas = this.createCanvas();
     this.canvas.width = 0;
     this.canvas.height = 0;
     this.el.appendChild(this.canvas);
 
-    this.topLeft = new geometry.Vector2(0, 0);
+    this.leftTop = new geometry.Vector2(0, 0);
 
     this.resources = resources;
     this.currentRealm = null;
@@ -101,7 +102,7 @@ export class GraphicsRenderer extends events.EventEmitter {
   center(position) {
     var bounds = this.getViewportBounds();
 
-    this.setTopLeft(new geometry.Vector2(
+    this.setLeftTop(new geometry.Vector2(
         position.x - Math.round(bounds.width / 2),
         position.y - Math.round(bounds.height / 2)));
   }
@@ -136,9 +137,9 @@ export class GraphicsRenderer extends events.EventEmitter {
     return location.scale(1 / GraphicsRenderer.TILE_SIZE);
   }
 
-  setTopLeft(v) {
+  setLeftTop(v) {
     var previous = this.getViewportBounds();
-    this.topLeft = v;
+    this.leftTop = v;
     this.emit("viewportChange");
   }
 
@@ -179,7 +180,7 @@ export class GraphicsRenderer extends events.EventEmitter {
     var size = this.fromScreenCoords(new geometry.Vector2(
         this.sBounds.width, this.sBounds.height));
 
-    return new geometry.Rectangle(this.topLeft.x, this.topLeft.y,
+    return new geometry.Rectangle(this.leftTop.x, this.leftTop.y,
                                   Math.ceil(size.x), Math.ceil(size.y));
   }
 
@@ -299,7 +300,7 @@ export class GraphicsRenderer extends events.EventEmitter {
     var ctx = this.prepareContext(terrainCanvas);
     ctx.clearRect(0, 0, terrainCanvas.width, terrainCanvas.height);
 
-    var sOffset = this.toScreenCoords(this.topLeft.negate());
+    var sOffset = this.toScreenCoords(this.leftTop.negate());
 
     // Only render the regions bounded by the viewport.
     for (var y = realm.Region.floor(viewport.top);
@@ -395,7 +396,6 @@ export class GraphicsRenderer extends events.EventEmitter {
     });
     ctx.restore();
     xrayCtx.restore();
-
 
     var illuminationCanvas = this.ensureBackBuffer("illumination");
     var illuminationCtx = this.prepareContext(illuminationCanvas);
@@ -507,8 +507,13 @@ export class GraphicsRenderer extends events.EventEmitter {
   }
 
   renderEntity(entity, me, ctx, pass) {
+    // Initialize the entity buffers container, if we don't have one already.
+    if (!objects.has(this.entityBuffers, entity.id)) {
+      this.entityBuffers[entity.id] = {};
+    }
+
     var sOffset = this.toScreenCoords(
-        entity.location.offset(this.topLeft.negate()));
+        entity.location.offset(this.leftTop.negate()));
 
     ctx.save();
     ctx.translate(sOffset.x, sOffset.y);
@@ -795,21 +800,64 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
     switch (this.pass) {
       case "terrain":
-        drawAutotileRectangle(this.renderer, entity.bbox, sprites["tile.dirt"],
-                              this.ctx);
+        if (drawInterior) {
+          var entityBuffers = this.renderer.entityBuffers[entity.id];
+
+          if (!objects.has(entityBuffers, "terrainAlbedo")) {
+            // Draw some stuff to the entity buffer.
+            var terrainCanvas = document.createElement("canvas");
+            entityBuffers.terrainAlbedo = terrainCanvas;
+
+            var terrainCanvasSize =
+                this.renderer.toScreenCoords(entity.bbox.getSize());
+            terrainCanvas.width = terrainCanvasSize.x;
+            terrainCanvas.height = terrainCanvasSize.y;
+
+            var terrainContext = this.renderer.prepareContext(terrainCanvas);
+
+            drawAutotileRectangle(this.renderer,
+                                  new geometry.Rectangle(0, 0,
+                                                         entity.bbox.width,
+                                                         entity.bbox.height),
+                                  sprites["tile.dirt"],
+                                  terrainContext);
+          }
+
+          var sOffset = this.renderer.toScreenCoords(entity.bbox.getLeftTop());
+          this.ctx.drawImage(entityBuffers.terrainAlbedo, sOffset.x, sOffset.y);
+        }
+
         break;
 
       case "albedo":
         if (drawExterior) {
+          var entityBuffers = this.renderer.entityBuffers[entity.id];
+
+          if (!objects.has(entityBuffers, "wallAlbedo")) {
+            // Draw some stuff to the entity buffer.
+            var wallCanvas = document.createElement("canvas");
+            entityBuffers.wallAlbedo = wallCanvas;
+
+            var wallCanvasSize =
+                this.renderer.toScreenCoords(
+                    new geometry.Vector2(entity.bbox.width, 2));
+            wallCanvas.width = wallCanvasSize.x;
+            wallCanvas.height = wallCanvasSize.y;
+
+            var wallContext = this.renderer.prepareContext(wallCanvas);
+            drawAutotileRectangle(this.renderer,
+                                  new geometry.Rectangle(0, 0,
+                                                         entity.bbox.width, 2),
+                                  sprites["building.wall"],
+                                  wallContext);
+          }
+
           this.ctx.globalAlpha = 1 - t;
 
-          drawAutotileRectangle(this.renderer,
-                                new geometry.Rectangle(entity.bbox.left,
-                                                       entity.bbox.getBottom() - 2,
-                                                       entity.bbox.width,
-                                                       2),
-                                sprites["building.wall"],
-                                this.ctx);
+          var sOffset = this.renderer.toScreenCoords(
+              new geometry.Vector2(entity.bbox.left,
+                                   entity.bbox.getBottom() - 2));
+          this.ctx.drawImage(entityBuffers.wallAlbedo, sOffset.x, sOffset.y);
 
           var halfHeight = this.renderer.toScreenCoords(
               new geometry.Vector2(0, 1)).y / 2;
@@ -848,7 +896,7 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
               "source-out";
 
           var sOffset2 = this.renderer.toScreenCoords(entity.location.offset(
-              this.renderer.topLeft.negate()));
+              this.renderer.leftTop.negate()));
           buildingInteriorIlluminationCtx.translate(sOffset2.x, sOffset2.y);
 
           var sBboxOffset = this.renderer.toScreenCoords(new geometry.Vector2(
@@ -862,7 +910,7 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
           buildingInteriorIlluminationCtx.restore();
 
           var viewportOffset = this.renderer.toScreenCoords(
-              this.renderer.topLeft);
+              this.renderer.leftTop);
 
           this.ctx.drawImage(buildingInteriorIllumination,
                              viewportOffset.x - sOffset.x,
