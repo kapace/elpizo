@@ -224,7 +224,6 @@ export class GraphicsRenderer extends events.EventEmitter {
     albedoCtx.save();
     albedoCtx.clearRect(0, 0, composite.width, composite.height);
     albedoCtx.drawImage(this.ensureBackBuffer("terrain"), 0, 0);
-    albedoCtx.drawImage(this.ensureBackBuffer("underlay"), 0, 0);
     albedoCtx.drawImage(this.ensureBackBuffer("entity"), 0, 0);
     albedoCtx.globalAlpha = 0.25;
     albedoCtx.drawImage(this.ensureBackBuffer("xray"), 0, 0);
@@ -374,11 +373,6 @@ export class GraphicsRenderer extends events.EventEmitter {
     xrayCtx.save();
     xrayCtx.clearRect(0, 0, xrayCanvas.width, xrayCanvas.height);
 
-    var underlayCanvas = this.ensureBackBuffer("underlay");
-    var underlayCtx = this.prepareContext(underlayCanvas);
-    underlayCtx.save();
-    underlayCtx.clearRect(0, 0, underlayCanvas.width, underlayCanvas.height);
-
     var terrainCanvas = this.ensureBackBuffer("terrain");
     var terrainCtx = this.prepareContext(terrainCanvas);
 
@@ -387,7 +381,6 @@ export class GraphicsRenderer extends events.EventEmitter {
       // want to.)
       this.renderEntity(entity, me, terrainCtx, "terrain");
       this.renderEntity(entity, me, ctx, "albedo");
-      this.renderEntity(entity, me, underlayCtx, "underlay");
       this.renderEntity(entity, me, xrayCtx, "xray");
     });
     ctx.restore();
@@ -698,20 +691,12 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
     switch (this.pass) {
       case "albedo":
-        spriteNames.forEach((name) => {
-            sprites[name][state][direction]
-                .render(this.renderer.resources, this.ctx, elapsed);
-        });
-        break;
-
       case "xray":
         spriteNames.forEach((name) => {
             sprites[name][state][direction]
                 .render(this.renderer.resources, this.ctx, elapsed);
         });
-        break;
 
-      case "underlay":
         var size = this.renderer.toScreenCoords(entity.bbox.getSize());
 
         // Render name card.
@@ -743,7 +728,6 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
         this.ctx.fillText(entity.name, 4, 8);
 
         this.ctx.restore();
-
         break;
     }
 
