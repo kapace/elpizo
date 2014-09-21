@@ -224,13 +224,12 @@ export class GraphicsRenderer extends events.EventEmitter {
     albedoCtx.save();
     albedoCtx.clearRect(0, 0, composite.width, composite.height);
     albedoCtx.drawImage(this.ensureBackBuffer("terrain"), 0, 0);
+    albedoCtx.drawImage(this.ensureBackBuffer("underlay"), 0, 0);
     albedoCtx.drawImage(this.ensureBackBuffer("entity"), 0, 0);
     albedoCtx.globalAlpha = 0.25;
     albedoCtx.drawImage(this.ensureBackBuffer("xray"), 0, 0);
     albedoCtx.globalAlpha = 1.0;
     albedoCtx.restore();
-
-    var overlay = this.ensureBackBuffer("overlay");
 
     var compositeCtx = this.prepareContext(composite);
     compositeCtx.save();
@@ -240,9 +239,6 @@ export class GraphicsRenderer extends events.EventEmitter {
 
     compositeCtx.globalCompositeOperation = "multiply";
     compositeCtx.drawImage(illumination, 0, 0);
-
-    compositeCtx.globalCompositeOperation = "source-over";
-    compositeCtx.drawImage(overlay, 0, 0);
 
     compositeCtx.restore();
 
@@ -378,10 +374,10 @@ export class GraphicsRenderer extends events.EventEmitter {
     xrayCtx.save();
     xrayCtx.clearRect(0, 0, xrayCanvas.width, xrayCanvas.height);
 
-    var overlayCanvas = this.ensureBackBuffer("overlay");
-    var overlayCtx = this.prepareContext(overlayCanvas);
-    overlayCtx.save();
-    overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    var underlayCanvas = this.ensureBackBuffer("underlay");
+    var underlayCtx = this.prepareContext(underlayCanvas);
+    underlayCtx.save();
+    underlayCtx.clearRect(0, 0, underlayCanvas.width, underlayCanvas.height);
 
     var terrainCanvas = this.ensureBackBuffer("terrain");
     var terrainCtx = this.prepareContext(terrainCanvas);
@@ -391,7 +387,7 @@ export class GraphicsRenderer extends events.EventEmitter {
       // want to.)
       this.renderEntity(entity, me, terrainCtx, "terrain");
       this.renderEntity(entity, me, ctx, "albedo");
-      this.renderEntity(entity, me, overlayCtx, "overlay");
+      this.renderEntity(entity, me, underlayCtx, "underlay");
       this.renderEntity(entity, me, xrayCtx, "xray");
     });
     ctx.restore();
@@ -715,18 +711,17 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
         });
         break;
 
-      case "overlay":
+      case "underlay":
+        var size = this.renderer.toScreenCoords(entity.bbox.getSize());
+
         // Render name card.
         this.ctx.save();
-        this.ctx.translate(
-            0, -(entity.getHeight() - 1) * GraphicsRenderer.TILE_SIZE - 18);
+        this.ctx.translate(0, size.y + 4);
 
         this.ctx.font = "10px \"Roboto Condensed\"";
 
         var baseWidth = this.ctx.measureText(entity.name).width;
         var width = baseWidth + 8;
-
-        var size = this.renderer.toScreenCoords(entity.bbox.getSize());
 
         this.ctx.translate(-width / 2 + size.x / 2, 0);
 

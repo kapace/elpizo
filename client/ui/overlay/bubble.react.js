@@ -15,7 +15,7 @@ export var Bubble = React.createClass({
     var style = {};
     style[Modernizr.prefixed("transform")] =
       "translate(" + (position.x + 16 + "px") + "," +
-                     (position.y - (entity.getHeight() - 1) * 32 + 8 + "px") + ")";
+                     (position.y - (entity.getHeight() - 1) * 32 - 6 + "px") + ")";
 
     return <div style={style}>
       <div className="bubble transitionable">
