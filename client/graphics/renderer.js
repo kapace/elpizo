@@ -718,7 +718,7 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
         this.ctx.save();
         this.ctx.translate(0, size.y + 4);
 
-        this.ctx.font = "10px \"Roboto Condensed\"";
+        this.ctx.font = "12px \"Roboto Condensed\"";
 
         var baseWidth = this.ctx.measureText(entity.name).width;
         var width = baseWidth + 8;
@@ -729,24 +729,17 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
             .darken(10).hex();
 
         this.ctx.textBaseline = "middle";
-        this.ctx.fillStyle = accentColor;
 
-        // Draw bars first, so we can mask text.
-        roundedRect(this.ctx, 0, 0, Math.floor(entity.health / 100 * width), 16,
+        roundedRect(this.ctx, 0, -2, width, 16 + 4, 2);
+        this.ctx.fillStyle = accentColor;
+        this.ctx.fill();
+
+        roundedRect(this.ctx, 0, 16, Math.floor(entity.health / 100 * width), 2,
                     2);
-        this.ctx.fillStyle = accentColor;
+        this.ctx.fillStyle = "#f77";
         this.ctx.fill();
 
-        this.ctx.globalCompositeOperation = "xor";
-        this.ctx.fillText(entity.name, 4, 8);
-
-        // Fill the white background.
-        this.ctx.globalCompositeOperation = "destination-over";
-        roundedRect(this.ctx, -2, -2, width + 4, 16 + 4, 2);
         this.ctx.fillStyle = "#fff";
-        this.ctx.fill();
-
-        this.ctx.fillStyle = accentColor;
         this.ctx.fillText(entity.name, 4, 8);
 
         this.ctx.restore();
