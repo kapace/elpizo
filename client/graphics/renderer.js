@@ -717,42 +717,45 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
       case "overlay":
         // Render name card.
-        var healthBarWidth = entity.bbox.width * GraphicsRenderer.TILE_SIZE *
-            1.25;
-
         this.ctx.save();
         this.ctx.translate(
-            Math.floor(-(healthBarWidth - entity.bbox.width *
-                GraphicsRenderer.TILE_SIZE) / 2),
-            -(entity.getHeight() - 1) * GraphicsRenderer.TILE_SIZE - 6);
+            0, -(entity.getHeight() - 1) * GraphicsRenderer.TILE_SIZE - 18);
 
-        this.ctx.fillStyle = "white";
-        this.ctx.fillRect(-1, -1, healthBarWidth + 2, 6);
+        this.ctx.font = "10px \"Roboto Condensed\"";
 
-        this.ctx.fillStyle = "#b00";
-        this.ctx.fillRect(0, 1,
-                          Math.floor(entity.health / 100 * healthBarWidth), 3);
+        var baseWidth = this.ctx.measureText(entity.name).width;
+        var width = baseWidth + 8;
 
-        this.ctx.fillStyle = "#f55";
-        this.ctx.fillRect(0, 0,
-                          Math.floor(entity.health / 100 * healthBarWidth), 3);
+        var size = this.renderer.toScreenCoords(entity.bbox.getSize());
+
+        this.ctx.translate(-width / 2 + size.x / 2, 0);
+
+        var accentColor = chroma(colors.makeColorForString(entity.name))
+            .darken(10).hex();
+
+        this.ctx.textBaseline = "middle";
+        this.ctx.fillStyle = accentColor;
+
+        // Draw bars first, so we can mask text.
+        roundedRect(this.ctx, 0, 0, Math.floor(entity.health / 100 * width), 16,
+                    2);
+        this.ctx.fillStyle = accentColor;
+        this.ctx.fill();
+
+        this.ctx.globalCompositeOperation = "xor";
+        this.ctx.fillText(entity.name, 4, 8);
+
+        // Fill the white background.
+        this.ctx.globalCompositeOperation = "destination-over";
+        roundedRect(this.ctx, -2, -2, width + 4, 16 + 4, 2);
+        this.ctx.fillStyle = "#fff";
+        this.ctx.fill();
+
+        this.ctx.fillStyle = accentColor;
+        this.ctx.fillText(entity.name, 4, 8);
 
         this.ctx.restore();
 
-        /*var baseWidth = this.ctx.measureText(entity.name).width;
-        var width = baseWidth + 8;
-
-        this.ctx.fillStyle = "rgb(255, 255, 255)";
-        this.ctx.fillRect(-width / 2, 0, width, 20);
-
-        this.ctx.textAlign = "center";
-        this.ctx.textBaseline = "middle";
-
-        var textColor = chroma(colors.makeColorForString(entity.name))
-            .darken(10).hex();
-        this.ctx.fillStyle = textColor;
-        this.ctx.fillText(entity.name, 0, 10);
-        this.ctx.restore();*/
         break;
     }
 
