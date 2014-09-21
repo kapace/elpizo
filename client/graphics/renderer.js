@@ -436,8 +436,6 @@ export class GraphicsRenderer extends events.EventEmitter {
 
     var ctx = this.prepareContext(canvas);
 
-    // TODO: zone rendering
-
     for (var ry = 0; ry < realm.Region.SIZE; ++ry) {
       for (var rx = 0; rx < realm.Region.SIZE; ++rx) {
         region.layers.forEach((layer) => {
