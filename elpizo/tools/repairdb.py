@@ -27,6 +27,16 @@ def repair(app):
               region.location, entity.id, entity.bounds)
           region.entities.remove(entity)
 
+  for entity in app.store.entities.load_all():
+    logger.info("Checking entity %s.", entity.id)
+    for region in entity.regions:
+      if entity not in region.entities:
+        logger.warn(
+            "Entity %s is bounded by region %r, but the entity was not " +
+            "indexed in the region. Indexing entity.",
+            region.location, entity.id)
+        entity.region.entities.add(entity)
+
 
 def main():
   server.Application(server.make_config_parser().parse_args()).once(repair)
