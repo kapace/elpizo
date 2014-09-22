@@ -832,41 +832,37 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
         if (drawInterior) {
           // Compute interior illumination mask by excluding portions of the
           // albedo buffer.
-          var buildingInteriorIllumination =
-              this.renderer.ensureBackBuffer("buildingInteriorIllumination");
+          var scratch = this.renderer.ensureBackBuffer("scratch");
 
-          var buildingInteriorIlluminationCtx =
-              this.renderer.prepareContext(buildingInteriorIllumination);
-          buildingInteriorIlluminationCtx.clearRect(0, 0,
-                                                    this.renderer.canvas.width,
-                                                    this.renderer.canvas.height);
-          buildingInteriorIlluminationCtx.drawImage(
-              this.renderer.ensureBackBuffer("entity"), 0, 0);
+          var scratchCtx = this.renderer.prepareContext(scratch);
+          scratchCtx.clearRect(0, 0,
+                               this.renderer.canvas.width,
+                               this.renderer.canvas.height);
+          scratchCtx.drawImage(this.renderer.ensureBackBuffer("entity"), 0, 0);
 
           var sOffset = this.renderer.toScreenCoords(entity.location);
 
-          buildingInteriorIlluminationCtx.save();
-          buildingInteriorIlluminationCtx.globalCompositeOperation =
-              "source-out";
+          scratchCtx.save();
+          scratchCtx.globalCompositeOperation = "source-out";
 
           var sOffset2 = this.renderer.toScreenCoords(entity.location.offset(
               this.renderer.leftTop.negate()));
-          buildingInteriorIlluminationCtx.translate(sOffset2.x, sOffset2.y);
+          scratchCtx.translate(sOffset2.x, sOffset2.y);
 
           var sBboxOffset = this.renderer.toScreenCoords(new geometry.Vector2(
               entity.bbox.left, entity.bbox.top));
           var sBboxSize = this.renderer.toScreenCoords(new geometry.Vector2(
               entity.bbox.width, entity.bbox.height));
 
-          buildingInteriorIlluminationCtx.fillStyle = "rgb(255, 255, 255)";
-          buildingInteriorIlluminationCtx.fillRect(
-              sBboxOffset.x, sBboxOffset.y, sBboxSize.x, sBboxSize.y);
-          buildingInteriorIlluminationCtx.restore();
+          scratchCtx.fillStyle = "rgb(255, 255, 255)";
+          scratchCtx.fillRect(sBboxOffset.x, sBboxOffset.y,
+                              sBboxSize.x, sBboxSize.y);
+          scratchCtx.restore();
 
           var viewportOffset = this.renderer.toScreenCoords(
               this.renderer.leftTop);
 
-          this.ctx.drawImage(buildingInteriorIllumination,
+          this.ctx.drawImage(scratch,
                              viewportOffset.x - sOffset.x,
                              viewportOffset.y - sOffset.y);
         }
