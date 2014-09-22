@@ -7,7 +7,6 @@ module debug from "client/ui/debug.react";
 // @endif
 
 module inventory from "client/ui/inventory.react";
-module interactions from "client/ui/interactions.react";
 module loading from "client/ui/loading.react";
 module log from "client/ui/log.react";
 module stats from "client/ui/stats.react";
@@ -50,15 +49,6 @@ export var UI = React.createClass({
               <inventory.Inventory
                   me={this.props.game.me}
                   resources={this.props.game.resources}
-                  protocol={this.props.game.protocol}
-                  log={this.props.game.log} />
-          </Item>);
-        }
-
-        if (Object.keys(this.props.game.me.interactions).length > 0) {
-          hudElements.push(<Item key="interactions">
-              <interactions.InteractionsMenu
-                  me={this.props.game.me}
                   protocol={this.props.game.protocol}
                   log={this.props.game.log} />
           </Item>);

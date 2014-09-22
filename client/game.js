@@ -105,7 +105,7 @@ export class Game extends events.EventEmitter {
 
     pos = pos.map(Math.floor);
 
-    this.me.doInteract(pos, this.protocol);
+    this.me.doInteract(pos, this.protocol, this.graphicsRenderer);
   }
 
   detectFeatures() {

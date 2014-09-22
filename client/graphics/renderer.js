@@ -94,7 +94,7 @@ export class GraphicsRenderer extends events.EventEmitter {
   }
 
   addComponent(id, comp) {
-    delete this.components[id];
+    this.removeComponent(id);
 
     objects.extend(comp.props, {
         renderer: this,
@@ -103,6 +103,10 @@ export class GraphicsRenderer extends events.EventEmitter {
 
     ++this.nextComponentKey;
     this.components[id] = comp;
+  }
+
+  removeComponent(id) {
+    delete this.components[id];
   }
 
   addChatBubble(entity, message) {
@@ -282,15 +286,16 @@ export class GraphicsRenderer extends events.EventEmitter {
     Object.keys(components).forEach((k) => {
       var comp = components[k];
 
-      var timer = comp.props.timer;
-      if (timer === null) {
-        return;
+      if (objects.has(comp.props, "timer")) {
+        var timer = comp.props.timer;
+        timer.update(dt);
+
+        if (timer.isStopped()) {
+          return;
+        }
       }
 
-      timer.update(dt);
-      if (!timer.isStopped()) {
-        this.components[k] = comp;
-      }
+      this.components[k] = comp;
     });
   }
 

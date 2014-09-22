@@ -159,7 +159,8 @@ export var Log = React.createClass({
                value={this.state.pendingMessage}
                ref="text"
                onKeyDown={this.onKeyDown}
-               placeholder="Chat message" />
+               placeholder="Chat message"
+               maxLength="100" />
       </div>
     </form>;
   }

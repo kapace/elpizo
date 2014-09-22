@@ -2,6 +2,7 @@ module geometry from "client/models/geometry";
 module itemRegistry from "client/models/items/registry";
 module packets from "client/protos/packets";
 module realm from "client/models/realm";
+module interactions from "client/ui/overlay/interactions.react";
 module input from "client/util/input";
 module timing from "client/util/timing";
 
@@ -369,27 +370,36 @@ export class Avatar extends Player {
     visitor.visitAvatar(this);
   }
 
-  doInteract(position, protocol) {
-    this.interactions = {};
+  doInteract(location, protocol, renderer) {
+    renderer.removeComponent("interactions");
+
+    var groups = {};
 
     this.realm.getAllEntities().filter((entity) => {
       if (entity === this ||
           entity.getBounds().intersect(
-              new geometry.Rectangle(position.x, position.y, 1, 1)) === null) {
+              new geometry.Rectangle(location.x, location.y, 1, 1)) === null) {
         return;
       }
 
       var actions = entity.getInteractions();
 
-      if (actions.length === 0) {
-        return;
-      }
-
-      this.interactions[entity.id] = {
+      groups[entity.id] = {
           entity: entity,
           actions: actions
       };
     });
+
+    if (Object.keys(groups).length > 0) {
+      renderer.addComponent(
+          "interactions",
+          interactions.InteractionsMenu({
+              me: this,
+              interactions: groups,
+              protocol: protocol,
+              location: location
+          }));
+    }
   }
 
   doMove(protocol, direction) {
