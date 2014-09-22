@@ -23,8 +23,8 @@ export var InteractionsMenu = React.createClass({
 
   runAction: function (actionIndex) {
     if (actionIndex !== null) {
-      var [k, j] = actionIndex;
-      var action = this.props.interactions[k].actions[j];
+      var [i, j] = actionIndex;
+      var action = this.props.interactions[i].actions[j];
       action.f(this.props.protocol, this.props.me, this.props.log);
     }
     this.dismiss();
@@ -44,30 +44,28 @@ export var InteractionsMenu = React.createClass({
       "translate(" + (position.x - 32 + "px") + "," +
                      (position.y + 32 + 8 + "px") + ")";
 
-    var interactions = Object.keys(this.props.interactions).map((k) => {
-      var group = this.props.interactions[k];
-
-      var actions = group.actions.map((action, j) => {
+    var interactions = this.props.entities.map((entity, i) => {
+      var actions = entity.getInteractions(this.props.me).map((action, j) => {
         var checked = false;
         if (this.state.actionIndex !== null) {
-          var [currentK, currentJ] = this.state.actionIndex;
-          checked = currentK === k && currentJ === j;
+          var [currentI, currentJ] = this.state.actionIndex;
+          checked = currentI === i && currentJ === j;
         }
 
         return <li key={j}>
           <input type="radio" name="item"
-                 id={"interactions-menu-" + k + "." + j}
-                 onChange={this.setAction.bind(this, [k, j])}
+                 id={"interactions-menu-" + i + "." + j}
+                 onChange={this.setAction.bind(this, [i, j])}
                  checked={checked} />
-          <label htmlFor={"interactions-menu-" + k + "." + j}
-                 onClick={this.runAction.bind(this, [k, j])}>
+          <label htmlFor={"interactions-menu-" + i + "." + j}
+                 onClick={this.runAction.bind(this, [i, j])}>
             {action.title}
           </label>
         </li>
       });
 
-      return <li key={k} className="action-group">
-        <div className="heading">{group.entity.getTitle()}</div>
+      return <li key={i} className="action-group">
+        <div className="heading">{entity.getTitle()}</div>
         <ul>{actions}</ul>
       </li>;
     });

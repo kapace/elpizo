@@ -43,8 +43,12 @@ export class Vector2 {
     return out;
   }
 
+  magnitudeSquared() {
+    return this.x * this.x + this.y * this.y;
+  }
+
   magnitude() {
-    return Math.sqrt(this.x * this.x + this.y * this.y);
+    return Math.sqrt(this.magnitudeSquared());
   }
 
   normalized() {
@@ -111,8 +115,12 @@ export class Vector3 {
     return out;
   }
 
+  magnitudeSquared() {
+    return this.x * this.x + this.y * this.y + this.z * this.z;
+  }
+
   magnitude() {
-    return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+    return Math.sqrt(this.magnitudeSquared());
   }
 
   normalized() {
@@ -158,6 +166,18 @@ export class Rectangle {
 
   getBottom() {
     return this.top + this.height;
+  }
+
+  distanceTo(other) {
+    var [mostLeft, mostRight] =
+        this.left < other.left ? [this, other] : [other, this];
+    var xDist = Math.max(0, mostRight.left - mostLeft.getRight());
+
+    var [upper, lower] =
+        this.top < other.top ? [this, other] : [other, this];
+    var yDist = Math.max(0, lower.top - upper.getBottom());
+
+    return new Vector2(xDist, yDist).magnitude();
   }
 
   intersect(other) {

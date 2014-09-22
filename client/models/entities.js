@@ -47,7 +47,7 @@ export class Entity extends timing.Timed {
     super.update(dt);
   }
 
-  getInteractions() {
+  getInteractions(me) {
     return [];
   }
 
@@ -79,11 +79,29 @@ export class Building extends Entity {
     return "Building at " + this.location.toString();
   }
 
-  getInteractions() {
-    return [{
-      title: "THIS ACTION DOES NOTHING AND IS ONLY FOR TESTING",
-      f: () => { }
+  getInteractions(me) {
+    var proximity = me.getBounds().distanceTo(this.getBounds());
+
+    var interactions = [{
+        title: "THIS ACTION DOES NOTHING AND IS ONLY FOR TESTING",
+        f: () => { }
     }];
+
+    if (proximity <= 8) {
+      interactions.push({
+          title: "THIS ACTION APPEARS AT PROXIMITY 8",
+          f: () => { }
+      })
+    }
+
+    if (proximity <= 0) {
+      interactions.push({
+          title: "THIS ACTION APPEARS AT PROXIMITY 0",
+          f: () => { }
+      })
+    }
+
+    return interactions;
   }
 
   accept(visitor) {
@@ -127,7 +145,7 @@ export class Drop extends Entity {
     protocol.send(new packets.PickUpPacket({dropId: this.id}));
   }
 
-  getInteractions() {
+  getInteractions(me) {
     var interactions = super.getInteractions();
 
     interactions.push({
@@ -182,7 +200,7 @@ export class Tree extends Entity {
     return false;
   }
 
-  getInteractions() {
+  getInteractions(me) {
     return [{
       title: "Cut",
       f: () => { }
@@ -387,29 +405,17 @@ export class Avatar extends Player {
   doInteract(location, protocol, renderer) {
     renderer.removeComponent("interactions");
 
-    var groups = {};
+    var entities = this.realm.getAllEntities().filter((entity) =>
+        entity !== this &&
+        entity.getBounds().intersect(
+            new geometry.Rectangle(location.x, location.y, 1, 1)) !== null);
 
-    this.realm.getAllEntities().filter((entity) => {
-      if (entity === this ||
-          entity.getBounds().intersect(
-              new geometry.Rectangle(location.x, location.y, 1, 1)) === null) {
-        return;
-      }
-
-      var actions = entity.getInteractions();
-
-      groups[entity.id] = {
-          entity: entity,
-          actions: actions
-      };
-    });
-
-    if (Object.keys(groups).length > 0) {
+    if (entities.length > 0) {
       renderer.addComponent(
           "interactions",
           interactions.InteractionsMenu({
               me: this,
-              interactions: groups,
+              entities: entities,
               protocol: protocol,
               location: location
           }));
