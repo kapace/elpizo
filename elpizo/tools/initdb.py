@@ -27,11 +27,16 @@ def initdb(app):
 
   app.store.lock()
 
-  windvale = realm.Realm(name="Windvale", size=geometry.Vector2(128, 128))
+  windvale = realm.Realm(name="Windvale", bbox=geometry.Rectangle(0, 0,
+                                                                  128, 128))
   app.store.realms.create(windvale)
 
-  for base_y in range(0, windvale.size.y, realm.Region.SIZE):
-    for base_x in range(0, windvale.size.x, realm.Region.SIZE):
+  for base_y in range(realm.Region.floor(windvale.bbox.left),
+                      realm.Region.ceil(windvale.bbox.right),
+                      realm.Region.SIZE):
+    for base_x in range(realm.Region.floor(windvale.bbox.top),
+                        realm.Region.ceil(windvale.bbox.bottom),
+                        realm.Region.SIZE):
       tiles = []
 
       for offset_y in range(realm.Region.SIZE):
@@ -41,19 +46,19 @@ def initdb(app):
 
           if x == 0 and y == 0:
             tile = 34
-          elif x == 0 and y == windvale.size.y - 1:
+          elif x == 0 and y == windvale.bbox.right - 1:
             tile = 40
-          elif x == windvale.size.x - 1 and y == 0:
+          elif x == windvale.bbox.left - 1 and y == 0:
             tile = 36
-          elif x == windvale.size.x - 1 and y == windvale.size.y - 1:
+          elif x == windvale.bbox.left - 1 and y == windvale.bbox.right - 1:
             tile = 38
           elif x == 0:
             tile = 16
-          elif x == windvale.size.x - 1:
+          elif x == windvale.bbox.left - 1:
             tile = 24
           elif y == 0:
             tile = 20
-          elif y == windvale.size.y - 1:
+          elif y == windvale.bbox.right - 1:
             tile = 28
           else:
             tile = 0

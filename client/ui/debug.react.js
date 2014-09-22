@@ -45,6 +45,10 @@ export var Debug = React.createClass({
           <td>({cacheBounds.left.toFixed(2)}, {cacheBounds.top.toFixed(2)}, {cacheBounds.getRight().toFixed(2)}, {cacheBounds.getBottom().toFixed(2)})</td>
         </tr>
 
+        <tr>
+          <th>Realm Bounding Box</th>
+          <td>({game.realm.bbox.left.toFixed(2)}, {game.realm.bbox.top.toFixed(2)}, {game.realm.bbox.getRight().toFixed(2)}, {game.realm.bbox.getBottom().toFixed(2)})</td>
+        </tr>
 
         <tr>
           <th># Regions Loaded</th>

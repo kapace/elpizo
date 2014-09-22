@@ -6,7 +6,7 @@ export class Realm {
   constructor(id, message) {
     this.id = id;
     this.name = message.name;
-    this.size = geometry.Vector2.fromProtobuf(message.size);
+    this.bbox = geometry.Rectangle.fromProtobuf(message.bbox);
 
     this.regions = {};
     this.entities = {};
@@ -51,18 +51,15 @@ export class Realm {
     return regions;
   }
 
-  getBounds() {
-    return new geometry.Rectangle(0, 0, this.size.x, this.size.y);
-  }
-
   getExtendedBounds() {
-    return new geometry.Rectangle(0, 0,
-                                  Region.ceil(this.size.x),
-                                  Region.ceil(this.size.y));
+    return geometry.Rectangle.fromCorners(Region.floor(this.bbox.left),
+                                          Region.floor(this.bbox.top),
+                                          Region.ceil(this.bbox.getRight()),
+                                          Region.ceil(this.bbox.getBottom()));
   }
 
   isTerrainPassableBy(entity) {
-    if (!this.getBounds().contains(entity.getTargetBounds())) {
+    if (!this.bbox.contains(entity.getTargetBounds())) {
       return false;
     }
 
