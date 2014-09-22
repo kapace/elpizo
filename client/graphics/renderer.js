@@ -716,6 +716,16 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
   visitActor(entity) {
     super.visitActor(entity);
 
+    var isHighlighted = this.renderer.highlight !== null &&
+        entity.getBounds().contains(
+            new geometry.Rectangle(this.renderer.highlight.x,
+                                   this.renderer.highlight.y,
+                                   1, 1));
+
+    if (isHighlighted) {
+      this.renderer.isHighlighting = true;
+    }
+
     var state = entity.isMoving ? "walking" :
                 "standing";
 
@@ -740,39 +750,41 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
         var size = this.renderer.toScreenCoords(entity.bbox.getSize());
 
-        // Render name card.
-        this.ctx.save();
-        this.ctx.translate(0, size.y + 4);
+        if (isHighlighted) {
+          // Render name card.
+          this.ctx.save();
+          this.ctx.translate(0, size.y + 4);
 
-        this.ctx.font = "12px \"Roboto Condensed\"";
+          this.ctx.font = "12px \"Roboto Condensed\"";
 
-        var baseWidth = this.ctx.measureText(entity.name).width;
-        var width = baseWidth + 8;
+          var baseWidth = this.ctx.measureText(entity.name).width;
+          var width = baseWidth + 8;
 
-        this.ctx.translate(-width / 2 + size.x / 2, 0);
+          this.ctx.translate(-width / 2 + size.x / 2, 0);
 
-        var accentColor = chroma(colors.makeColorForString(entity.name))
-            .darken(10).hex();
+          var accentColor = chroma(colors.makeColorForString(entity.name))
+              .darken(10).hex();
 
-        this.ctx.textBaseline = "middle";
+          this.ctx.textBaseline = "middle";
 
-        roundedRect(this.ctx, 0, -2, width, 16 + 4, 2);
-        this.ctx.fillStyle = accentColor;
-        this.ctx.fill();
+          roundedRect(this.ctx, 0, -2, width, 16 + 4, 2);
+          this.ctx.fillStyle = accentColor;
+          this.ctx.fill();
 
-        this.ctx.fillStyle = "#fff";
-        roundedRect(this.ctx, 0, 16, width, 2, 2);
-        this.ctx.fill();
+          this.ctx.fillStyle = "#fff";
+          roundedRect(this.ctx, 0, 16, width, 2, 2);
+          this.ctx.fill();
 
-        this.ctx.fillStyle = "#f77";
-        roundedRect(this.ctx, 0, 16, Math.floor(entity.health / 100 * width), 2,
-                    2);
-        this.ctx.fill();
+          this.ctx.fillStyle = "#f77";
+          roundedRect(this.ctx, 0, 16, Math.floor(entity.health / 100 * width), 2,
+                      2);
+          this.ctx.fill();
 
-        this.ctx.fillStyle = "#fff";
-        this.ctx.fillText(entity.name, 4, 8);
+          this.ctx.fillStyle = "#fff";
+          this.ctx.fillText(entity.name, 4, 8);
 
-        this.ctx.restore();
+          this.ctx.restore();
+        }
         break;
     }
   }
