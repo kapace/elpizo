@@ -359,7 +359,7 @@ export class NPC extends Actor {
 export class Avatar extends Player {
   constructor(id, message) {
     super(id, message);
-    this.interactions = [];
+    this.interactions = {};
     this.showInventory = false;
 
     this.navigatingLocation = null;
@@ -370,19 +370,26 @@ export class Avatar extends Player {
   }
 
   doInteract(position, protocol) {
-    var adjacents = this.realm.getAllEntities().filter((entity) =>
-      entity.getBounds().intersect(
-          new geometry.Rectangle(position.x, position.y, 1, 1)) !== null &&
-      entity !== this);
+    this.interactions = {};
 
-    // Check for interactions.
-    var interactions = [];
-    [].push.apply(interactions, adjacents.map((entity) => ({
-        entity: entity,
-        actions: entity.getInteractions()
-    })).filter((group) => group.actions.length > 0));
+    this.realm.getAllEntities().filter((entity) => {
+      if (entity === this ||
+          entity.getBounds().intersect(
+              new geometry.Rectangle(position.x, position.y, 1, 1)) === null) {
+        return;
+      }
 
-    this.interactions = interactions;
+      var actions = entity.getInteractions();
+
+      if (actions.length === 0) {
+        return;
+      }
+
+      this.interactions[entity.id] = {
+          entity: entity,
+          actions: actions
+      };
+    });
   }
 
   doMove(protocol, direction) {

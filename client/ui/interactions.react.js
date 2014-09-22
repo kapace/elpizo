@@ -52,11 +52,13 @@ export var InteractionsMenu = React.createClass({
   },
 
   dismiss: function () {
-    this.props.me.interactions = [];
+    this.props.me.interactions = {};
   },
 
   render: function () {
-    var interactions = this.state.interactions.map((group, i) => {
+    var interactions = Object.keys(this.state.interactions).map((k, i) => {
+      var group = this.state.interactions[k];
+
       var actions = group.actions.map((action, j) => {
         var checked = false;
         if (this.state.actionIndex !== null) {

@@ -103,7 +103,9 @@ export class Game extends events.EventEmitter {
       return;
     }
 
-    this.me.doInteract(pos.map(Math.floor), this.protocol);
+    pos = pos.map(Math.floor);
+
+    this.me.doInteract(pos, this.protocol);
   }
 
   detectFeatures() {

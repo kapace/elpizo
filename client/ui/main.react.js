@@ -55,7 +55,7 @@ export var UI = React.createClass({
           </Item>);
         }
 
-        if (this.props.game.me.interactions.length > 0) {
+        if (Object.keys(this.props.game.me.interactions).length > 0) {
           hudElements.push(<Item key="interactions">
               <interactions.InteractionsMenu
                   me={this.props.game.me}

@@ -34,8 +34,11 @@ export class GraphicsRenderer extends events.EventEmitter {
     this.el.appendChild(this.canvas);
 
     this.canvas.onclick = this.onClick.bind(this);
+    this.canvas.onmousemove = this.onMouseMove.bind(this);
+    this.canvas.onmouseout = this.onMouseOut.bind(this);
 
     this.leftTop = new geometry.Vector2(0, 0);
+    this.highlight = null;
 
     this.resources = resources;
 
@@ -61,14 +64,23 @@ export class GraphicsRenderer extends events.EventEmitter {
     this.transitionTimer = new timing.CountdownTimer();
   }
 
+  eventToRealmCoords(e) {
+    var screenCoords = new geometry.Vector2(e.clientX - this.sBounds.left,
+                                            e.clientY - this.sBounds.top);
+
+    return this.fromScreenCoords(screenCoords).offset(this.leftTop);
+  }
+
   onClick(e) {
-    var screenCoords = new geometry.Vector2(e.x - this.sBounds.left,
-                                            e.y - this.sBounds.top);
+    this.emit("click", this.eventToRealmCoords(e));
+  }
 
-    var worldCoords = this.fromScreenCoords(screenCoords)
-        .offset(this.leftTop);
+  onMouseMove(e) {
+    this.highlight = this.eventToRealmCoords(e).map(Math.floor);
+  }
 
-    this.emit("click", worldCoords);
+  onMouseOut(e) {
+    this.highlight = null;
   }
 
   ensureBackBuffer(name) {
@@ -216,10 +228,13 @@ export class GraphicsRenderer extends events.EventEmitter {
     illuminationCtx.globalCompositeOperation = "lighter";
 
     this.elapsed += dt;
+    this.isHighlighting = false;
     this.renderTerrain(realm, me);
     this.renderEntities(realm, me);
     this.renderAmbientIllumination(realm, illuminationCtx);
     this.updateComponents(dt);
+
+    this.canvas.style.cursor = this.isHighlighting ? "pointer" : "default";
 
     var albedo = this.ensureBackBuffer("albedo");
     var albedoCtx = this.prepareContext(albedo);
@@ -569,7 +584,9 @@ function drawAutotileGrid(renderer, grid, autotile, ctx) {
   }
 }
 
-function roundedRect(ctx, x, y, w, h, r) {
+function roundedRect(ctx, x, y, w, h, r, options) {
+  options = options || {};
+
   if (w < 2 * r) {
     r = w / 2;
   }
@@ -579,11 +596,13 @@ function roundedRect(ctx, x, y, w, h, r) {
   }
 
   ctx.beginPath();
+
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y,     x + w, y + h, r);
   ctx.arcTo(x + w, y + h, x,     y + h, r);
   ctx.arcTo(x,     y + h, x,     y,     r);
   ctx.arcTo(x,     y,     x + w, y,     r);
+
   ctx.closePath();
 }
 
@@ -633,33 +652,61 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
   }
 
   visitEntity(entity) {
-    if (this.pass === "illumination") {
-      return;
-    }
-
-    // @ifdef DEBUG
-    if (this.renderer.debug) {
-      this.ctx.save();
-      this.ctx.fillStyle = "rgba(0, 0, 255, 0.25)";
-      this.ctx.strokeStyle = "rgba(0, 0, 255, 0.75)";
-
-      var sOffset = this.renderer.toScreenCoords(new geometry.Vector2(
-          entity.bbox.left, entity.bbox.top));
-      var sSize = this.renderer.toScreenCoords(new geometry.Vector2(
-          entity.bbox.width, entity.bbox.height));
-      this.ctx.translate(sOffset.x, sOffset.y);
-      this.ctx.fillRect(0, 0, sSize.x, sSize.y);
-      this.ctx.strokeRect(0, 0, sSize.x, sSize.y);
-      this.ctx.fillStyle = "rgba(0, 0, 255, 0.75)";
-      this.ctx.font = "12px sans-serif";
-      this.ctx.textAlign = "center";
-      this.ctx.textBaseline = "middle";
-      this.ctx.fillText("(id: " + entity.id + ")", sSize.x / 2, sSize.y / 2);
-      this.ctx.restore();
-    }
-    // @endif
-
     super.visitEntity(entity);
+
+    var isHighlighted = this.renderer.highlight !== null &&
+        entity.getBounds().contains(
+            new geometry.Rectangle(this.renderer.highlight.x,
+                                   this.renderer.highlight.y,
+                                   1, 1));
+
+    if (isHighlighted) {
+      this.renderer.isHighlighting = true;
+    }
+
+    if (this.pass === "albedo") {
+      if (isHighlighted) {
+        var sOffset = this.renderer.toScreenCoords(new geometry.Vector2(
+            entity.bbox.left, entity.bbox.top));
+        var sSize = this.renderer.toScreenCoords(new geometry.Vector2(
+            entity.bbox.width, entity.bbox.height));
+
+        this.ctx.save();
+        this.ctx.translate(sOffset.x, sOffset.y);
+
+        this.ctx.fillStyle = "rgba(0, 0, 255, 0.25)";
+        roundedRect(this.ctx, -4, -4, sSize.x + 8, sSize.y + 8, 4);
+        this.ctx.fill();
+
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+        roundedRect(this.ctx, 0, 0, sSize.x, sSize.y, 4);
+        this.ctx.fill();
+
+        this.ctx.restore();
+      }
+
+      // @ifdef DEBUG
+      if (this.renderer.debug) {
+        this.ctx.save();
+        this.ctx.fillStyle = "rgba(0, 0, 255, 0.25)";
+        this.ctx.strokeStyle = "rgba(0, 0, 255, 0.75)";
+
+        var sOffset = this.renderer.toScreenCoords(new geometry.Vector2(
+            entity.bbox.left, entity.bbox.top));
+        var sSize = this.renderer.toScreenCoords(new geometry.Vector2(
+            entity.bbox.width, entity.bbox.height));
+        this.ctx.translate(sOffset.x, sOffset.y);
+        this.ctx.fillRect(0, 0, sSize.x, sSize.y);
+        this.ctx.strokeRect(0, 0, sSize.x, sSize.y);
+        this.ctx.fillStyle = "rgba(0, 0, 255, 0.75)";
+        this.ctx.font = "12px sans-serif";
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+        this.ctx.fillText("(id: " + entity.id + ")", sSize.x / 2, sSize.y / 2);
+        this.ctx.restore();
+      }
+      // @endif
+    }
   }
 
   visitActor(entity) {
