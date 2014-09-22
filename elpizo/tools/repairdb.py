@@ -16,19 +16,19 @@ def repair(app):
   app.store.unlock()
   app.store.lock()
 
+  logger.info("Checking for entities requiring de-indexing.")
   for realm in app.store.realms.load_all():
-    logger.info("Checking realm %s.", realm.id)
     for region in realm.regions.load_all():
       for entity in list(region.entities):
         if entity.bounds.intersect(region.bounds) is None:
           logger.warn(
-              "Region %r bounds entity %s, but entity's bounds are %r. " +
-              "Unlinking entity from region.",
+              "Region %r indexes entity %s, but entity's bounds are %r. " +
+              "De-indexing entity.",
               region.location, entity.id, entity.bounds)
           region.entities.remove(entity)
 
+  logger.info("Checking for entities requiring indexing.")
   for entity in app.store.entities.load_all():
-    logger.info("Checking entity %s.", entity.id)
     for region in entity.regions:
       if entity not in region.entities:
         logger.warn(
