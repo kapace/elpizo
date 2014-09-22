@@ -82,6 +82,7 @@ export class Game extends events.EventEmitter {
 
     this.graphicsRenderer.on("refit", this.onRefit.bind(this));
     this.graphicsRenderer.on("viewportChange", this.onViewportChange.bind(this));
+    this.graphicsRenderer.on("click", this.onClick.bind(this));
 
     // @ifdef DEBUG
     this.setDebug(qs.debug === "on");
@@ -95,6 +96,14 @@ export class Game extends events.EventEmitter {
       // Something has gone horribly wrong, bail out!
       console.error(e.stack);
     }
+  }
+
+  onClick(pos) {
+    if (this.me === null) {
+      return;
+    }
+
+    this.me.navigatingLocation = pos.map(Math.floor);
   }
 
   detectFeatures() {

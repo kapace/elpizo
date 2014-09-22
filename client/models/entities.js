@@ -365,6 +365,8 @@ export class Avatar extends Player {
     super(id, message);
     this.interactions = [];
     this.showInventory = false;
+
+    this.navigatingLocation = null;
   }
 
   accept(visitor) {
@@ -461,6 +463,7 @@ export class Avatar extends Player {
     var didMove = false;
 
     if (direction !== null) {
+      this.navigatingLocation = null;
       this.interactions = [];
       didMove = this.doMove(protocol, direction);
     }
