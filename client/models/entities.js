@@ -46,11 +46,7 @@ export class Entity extends timing.Timed {
     super.update(dt);
   }
 
-  getAdjacentInteractions() {
-    return [];
-  }
-
-  getIntersectingInteractions() {
+  getInteractions() {
     return [];
   }
 
@@ -82,7 +78,7 @@ export class Building extends Entity {
     return "Building at " + this.location.toString();
   }
 
-  getAdjacentInteractions() {
+  getInteractions() {
     return [{
       title: "THIS ACTION DOES NOTHING AND IS ONLY FOR TESTING",
       f: () => { }
@@ -130,8 +126,8 @@ export class Drop extends Entity {
     protocol.send(new packets.PickUpPacket({dropId: this.id}));
   }
 
-  getIntersectingInteractions() {
-    var interactions = super.getIntersectingInteractions();
+  getInteractions() {
+    var interactions = super.getInteractions();
 
     interactions.push({
         title: "Pick up",
@@ -185,7 +181,7 @@ export class Tree extends Entity {
     return false;
   }
 
-  getAdjacentInteractions() {
+  getInteractions() {
     return [{
       title: "Cut",
       f: () => { }
@@ -373,28 +369,17 @@ export class Avatar extends Player {
     visitor.visitAvatar(this);
   }
 
-  doInteract(protocol) {
-    var intersecting = this.realm.getAllEntities().filter((entity) =>
-      entity.getBounds().intersect(this.getBounds()) !== null &&
-      this.realm.isTerrainPassableBy(this, this.getBounds(), this.direction) &&
-      entity !== this);
-
+  doInteract(position, protocol) {
     var adjacents = this.realm.getAllEntities().filter((entity) =>
-      entity.getBounds().intersect(this.getTargetBounds()) !== null &&
-      entity.getBounds().intersect(this.getBounds()) === null &&
-      this.realm.isTerrainPassableBy(this, this.getTargetBounds(),
-                                     this.direction) &&
+      entity.getBounds().intersect(
+          new geometry.Rectangle(position.x, position.y, 1, 1)) !== null &&
       entity !== this);
 
     // Check for interactions.
     var interactions = [];
-    [].push.apply(interactions, intersecting.map((entity) => ({
-        entity: entity,
-        actions: entity.getIntersectingInteractions()
-    })).filter((group) => group.actions.length > 0));
     [].push.apply(interactions, adjacents.map((entity) => ({
         entity: entity,
-        actions: entity.getAdjacentInteractions()
+        actions: entity.getInteractions()
     })).filter((group) => group.actions.length > 0));
 
     this.interactions = interactions;
@@ -454,10 +439,10 @@ export class Avatar extends Player {
     }
 
     // Check for movement.
-    var direction = inputState.held(input.Key.LEFT) ? Directions.W :
-                    inputState.held(input.Key.UP) ? Directions.N :
-                    inputState.held(input.Key.RIGHT) ? Directions.E :
-                    inputState.held(input.Key.DOWN) ? Directions.S :
+    var direction = inputState.held(input.Key.LEFT)   || inputState.held(input.Key.A) ? Directions.W :
+                    inputState.held(input.Key.UP)     || inputState.held(input.Key.W) ? Directions.N :
+                    inputState.held(input.Key.RIGHT)  || inputState.held(input.Key.D) ? Directions.E :
+                    inputState.held(input.Key.DOWN)   || inputState.held(input.Key.S) ? Directions.S :
                     null;
 
     var didMove = false;

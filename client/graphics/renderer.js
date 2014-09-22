@@ -885,22 +885,5 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
     super.visitBuilding(entity);
   }
-
-  visitAvatar(entity) {
-    super.visitAvatar(entity);
-
-    if (this.pass === "albedo") {
-      if (entity.navigatingLocation !== null) {
-        var sOffset = this.renderer.toScreenCoords(
-            entity.location.negate().offset(entity.navigatingLocation));
-
-        this.ctx.save();
-        this.ctx.translate(sOffset.x, sOffset.y);
-        this.ctx.fillStyle = "rgba(0, 0, 255, 0.5)";
-        this.ctx.fillRect(0, 0, GraphicsRenderer.TILE_SIZE, GraphicsRenderer.TILE_SIZE);
-        this.ctx.restore();
-      }
-    }
-  }
 }
 GraphicsRenderer.TILE_SIZE = 32;
