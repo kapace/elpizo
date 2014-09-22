@@ -119,6 +119,11 @@ export class Region {
     this.layers = message.layers.map((layer) => new Layer(layer));
     this.passabilities = new grid.Grid(Region.SIZE, Region.SIZE,
                                        message.passabilities);
+
+    // This is only so the renderer doesn't have to GC cached data.
+    // ONLY THE RENDERER SHOULD READ FROM THIS AND IT SHOULD BE CONSIDERED PART
+    // OF THE RENDERER.
+    this.rendererPrivate = {};
   }
 
   getKey() {

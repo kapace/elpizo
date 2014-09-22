@@ -27,7 +27,6 @@ export class GraphicsRenderer extends events.EventEmitter {
     parent.appendChild(this.el);
 
     this.backBuffers = {};
-    this.entityBuffers = {};
 
     this.canvas = this.createCanvas();
     this.canvas.width = 0;
@@ -37,11 +36,11 @@ export class GraphicsRenderer extends events.EventEmitter {
     this.leftTop = new geometry.Vector2(0, 0);
 
     this.resources = resources;
-    this.currentRealm = null;
 
-    this.regionTerrainCache = {};
     this.elapsed = 0;
     this.lastRenderTime = 0;
+
+    this.dirty = true;
 
     this.nextComponentKey = 0;
 
@@ -95,7 +94,7 @@ export class GraphicsRenderer extends events.EventEmitter {
   // @ifdef DEBUG
   setDebug(debug) {
     this.debug = debug;
-    this.regionTerrainCache = {};
+    this.dirty = true;
   }
   // @endif
 
@@ -200,14 +199,6 @@ export class GraphicsRenderer extends events.EventEmitter {
     var composite = this.ensureBackBuffer("composite");
     var retain = this.ensureBackBuffer("retain");
 
-    if (realm !== this.currentRealm) {
-      // Copy the last composite and retain it.
-      var retainCtx = this.prepareContext(retain);
-      retainCtx.clearRect(0, 0, retain.width, retain.height);
-      retainCtx.drawImage(composite, 0, 0);
-      this.transitionTimer.reset(0.25);
-    }
-
     var illumination = this.ensureBackBuffer("illumination");
     var illuminationCtx = this.prepareContext(illumination);
     illuminationCtx.globalCompositeOperation = "lighter";
@@ -251,6 +242,7 @@ export class GraphicsRenderer extends events.EventEmitter {
     ctx.drawImage(composite, 0, 0);
 
     this.lastRenderTime = this.lastRenderTime * 0.9 + dt * 0.1;
+    this.dirty = false;
   }
 
   renderAmbientIllumination(realm, ctx) {
@@ -278,19 +270,6 @@ export class GraphicsRenderer extends events.EventEmitter {
   renderTerrain(r, me) {
     var viewport = this.getViewportBounds();
 
-    if (r !== this.currentRealm) {
-      this.regionTerrainCache = {};
-      this.currentRealm = r;
-    } else {
-      // Evict parts of the terrain cache to keep it synchronized with realm
-      // regions.
-      Object.keys(this.regionTerrainCache).forEach((k) => {
-        if (!r.regions[k]) {
-          delete this.regionTerrainCache[k];
-        }
-      });
-    }
-
     var terrainCanvas = this.ensureBackBuffer("terrain");
     var ctx = this.prepareContext(terrainCanvas);
     ctx.clearRect(0, 0, terrainCanvas.width, terrainCanvas.height);
@@ -317,12 +296,13 @@ export class GraphicsRenderer extends events.EventEmitter {
 
         // If this region hasn't been rendered yet, then we render it and add it
         // to the cache.
-        if (!objects.has(this.regionTerrainCache, key)) {
-          this.regionTerrainCache[key] =
+        if (!objects.has(region.rendererPrivate, "terrainAlbedo") ||
+            this.dirty) {
+          region.rendererPrivate.terrainAlbedo =
               this.renderRegionTerrainAsBuffer(region);
         }
 
-        var buffer = this.regionTerrainCache[key];
+        var buffer = region.rendererPrivate.terrainAlbedo;
         ctx.save();
         ctx.translate(sLeft, sTop);
         ctx.drawImage(buffer, 0, 0);
@@ -494,11 +474,6 @@ export class GraphicsRenderer extends events.EventEmitter {
   }
 
   renderEntity(entity, me, ctx, pass) {
-    // Initialize the entity buffers container, if we don't have one already.
-    if (!objects.has(this.entityBuffers, entity.id)) {
-      this.entityBuffers[entity.id] = {};
-    }
-
     var sOffset = this.toScreenCoords(
         entity.location.offset(this.leftTop.negate()));
 
@@ -719,9 +694,13 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
         this.ctx.fillStyle = accentColor;
         this.ctx.fill();
 
+        this.ctx.fillStyle = "#fff";
+        roundedRect(this.ctx, 0, 16, width, 2, 2);
+        this.ctx.fill();
+
+        this.ctx.fillStyle = "#f77";
         roundedRect(this.ctx, 0, 16, Math.floor(entity.health / 100 * width), 2,
                     2);
-        this.ctx.fillStyle = "#f77";
         this.ctx.fill();
 
         this.ctx.fillStyle = "#fff";
@@ -774,12 +753,11 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
     switch (this.pass) {
       case "terrain":
         if (drawInterior) {
-          var entityBuffers = this.renderer.entityBuffers[entity.id];
-
-          if (!objects.has(entityBuffers, "terrainAlbedo")) {
+          if (!objects.has(entity.rendererPrivate, "terrainAlbedo") ||
+              this.renderer.dirty) {
             // Draw some stuff to the entity buffer.
             var terrainCanvas = document.createElement("canvas");
-            entityBuffers.terrainAlbedo = terrainCanvas;
+            entity.rendererPrivate.terrainAlbedo = terrainCanvas;
 
             var terrainCanvasSize =
                 this.renderer.toScreenCoords(entity.bbox.getSize());
@@ -797,19 +775,19 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
           }
 
           var sOffset = this.renderer.toScreenCoords(entity.bbox.getLeftTop());
-          this.ctx.drawImage(entityBuffers.terrainAlbedo, sOffset.x, sOffset.y);
+          this.ctx.drawImage(entity.rendererPrivate.terrainAlbedo,
+                             sOffset.x, sOffset.y);
         }
 
         break;
 
       case "albedo":
         if (drawExterior) {
-          var entityBuffers = this.renderer.entityBuffers[entity.id];
-
-          if (!objects.has(entityBuffers, "wallAlbedo")) {
+          if (!objects.has(entity.rendererPrivate, "wallAlbedo") ||
+              this.renderer.dirty) {
             // Draw some stuff to the entity buffer.
             var wallCanvas = document.createElement("canvas");
-            entityBuffers.wallAlbedo = wallCanvas;
+            entity.rendererPrivate.wallAlbedo = wallCanvas;
 
             var wallCanvasSize =
                 this.renderer.toScreenCoords(
@@ -830,7 +808,8 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
           var sOffset = this.renderer.toScreenCoords(
               new geometry.Vector2(entity.bbox.left,
                                    entity.bbox.getBottom() - 2));
-          this.ctx.drawImage(entityBuffers.wallAlbedo, sOffset.x, sOffset.y);
+          this.ctx.drawImage(entity.rendererPrivate.wallAlbedo,
+                             sOffset.x, sOffset.y);
 
           var halfHeight = this.renderer.toScreenCoords(
               new geometry.Vector2(0, 1)).y / 2;
@@ -838,11 +817,13 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
           if (entity.doorLocation === 2) {
             this.ctx.fillStyle = "black";
             this.ctx.fillRect(doorSOffset.x, doorSOffset.y,
-                              GraphicsRenderer.TILE_SIZE, GraphicsRenderer.TILE_SIZE);
+                              GraphicsRenderer.TILE_SIZE,
+                              GraphicsRenderer.TILE_SIZE);
           }
 
           this.ctx.translate(0, -halfHeight);
-          sprites["building.red_roof_1"].render(this.renderer.resources, this.ctx,
+          sprites["building.red_roof_1"].render(this.renderer.resources,
+                                                this.ctx,
                                                 this.renderer.elapsed);
         }
         break;

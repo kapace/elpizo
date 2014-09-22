@@ -15,6 +15,11 @@ export class Entity extends timing.Timed {
     this.location = geometry.Vector3.fromProtobuf(message.location);
     this.bbox = geometry.Rectangle.fromProtobuf(message.bbox);
     this.direction = message.direction;
+
+    // This is only so the renderer doesn't have to GC cached data.
+    // ONLY THE RENDERER SHOULD READ FROM THIS AND IT SHOULD BE CONSIDERED PART
+    // OF THE RENDERER.
+    this.rendererPrivate = {};
   }
 
   getTitle() {
