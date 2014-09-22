@@ -33,6 +33,8 @@ export class GraphicsRenderer extends events.EventEmitter {
     this.canvas.height = 0;
     this.el.appendChild(this.canvas);
 
+    this.canvas.onclick = this.onClick.bind(this);
+
     this.leftTop = new geometry.Vector2(0, 0);
 
     this.resources = resources;
@@ -57,6 +59,14 @@ export class GraphicsRenderer extends events.EventEmitter {
     this.components = {};
 
     this.transitionTimer = new timing.CountdownTimer();
+  }
+
+  onClick(e) {
+    var screenCoords = new geometry.Vector2(e.x - this.sBounds.left,
+                                            e.y - this.sBounds.top);
+
+    var worldCoords = this.fromScreenCoords(screenCoords)
+        .offset(this.leftTop);
   }
 
   ensureBackBuffer(name) {
