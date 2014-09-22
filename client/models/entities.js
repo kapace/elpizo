@@ -428,11 +428,6 @@ export class Avatar extends Player {
       return;
     }
 
-    if (inputState.stick(input.Key.Z)) {
-      this.doInteract(protocol);
-      return;
-    }
-
     if (inputState.stick(input.Key.I)) {
       this.interactions = [];
       this.showInventory = !this.showInventory;

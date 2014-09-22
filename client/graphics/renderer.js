@@ -674,13 +674,12 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
         this.ctx.save();
         this.ctx.translate(sOffset.x, sOffset.y);
 
-        this.ctx.fillStyle = "rgba(0, 0, 255, 0.25)";
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+        this.ctx.strokeStyle = "rgba(0, 0, 255, 0.25)";
+        this.ctx.lineWidth = 4;
         roundedRect(this.ctx, -4, -4, sSize.x + 8, sSize.y + 8, 4);
         this.ctx.fill();
-
-        this.ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
-        roundedRect(this.ctx, 0, 0, sSize.x, sSize.y, 4);
-        this.ctx.fill();
+        this.ctx.stroke();
 
         this.ctx.restore();
       }
@@ -710,6 +709,8 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
   }
 
   visitActor(entity) {
+    super.visitActor(entity);
+
     var state = entity.isMoving ? "walking" :
                 "standing";
 
@@ -768,29 +769,29 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
         this.ctx.restore();
         break;
     }
-
-    super.visitActor(entity);
   }
 
   visitDrop(entity) {
+    super.visitDrop(entity);
+
     if (this.pass === "albedo") {
       sprites[["item", entity.item.type].join(".")]
           .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
     }
-
-    super.visitDrop(entity);
   }
 
   visitTree(entity) {
+    super.visitTree(entity);
+
     if (this.pass === "albedo") {
       sprites[["tree", entity.species, entity.getGrowthStageName()].join(".")]
           .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
     }
-
-    super.visitTree(entity);
   }
 
   visitBuilding(entity) {
+    super.visitBuilding(entity);
+
     this.ctx.save();
 
     var doorLocation = (new geometry.Vector3(1, 1, 0))
@@ -929,8 +930,6 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
     }
 
     this.ctx.restore();
-
-    super.visitBuilding(entity);
   }
 }
 GraphicsRenderer.TILE_SIZE = 32;
