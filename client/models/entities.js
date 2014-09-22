@@ -191,18 +191,26 @@ export class Tree extends Entity {
 }
 
 export var Directions = {
-    N: 0,
-    W: 1,
-    S: 2,
-    E: 3
+    N:  0,
+    NW: 1,
+    W:  2,
+    SW: 3,
+    S:  4,
+    SE: 5,
+    E:  6,
+    NE: 7
 };
 
 export function getDirectionVector(d) {
   switch (d) {
-    case Directions.N: return new geometry.Vector3( 0, -1,  0);
-    case Directions.W: return new geometry.Vector3(-1,  0,  0);
-    case Directions.S: return new geometry.Vector3( 0,  1,  0);
-    case Directions.E: return new geometry.Vector3( 1,  0,  0);
+    case Directions.N:  return new geometry.Vector3( 0, -1,  0);
+    case Directions.NW: return new geometry.Vector3(-1, -1,  0);
+    case Directions.W:  return new geometry.Vector3(-1,  0,  0);
+    case Directions.SW: return new geometry.Vector3(-1,  1,  0);
+    case Directions.S:  return new geometry.Vector3( 0,  1,  0);
+    case Directions.SE: return new geometry.Vector3( 1,  1,  0);
+    case Directions.E:  return new geometry.Vector3( 1,  0,  0);
+    case Directions.NE: return new geometry.Vector3( 1, -1,  0);
   }
 }
 
@@ -262,8 +270,9 @@ export class Actor extends Entity {
     var moveTimer = this.getTimer("move");
 
     this.location = this.location
-        .offset(this.getDirectionVector().scale(
-            moveTimer.remaining * this.getSpeed()))
+        .offset(this.getDirectionVector()
+            .normalized()
+            .scale(moveTimer.remaining * this.getSpeed()))
         .map(Math.round);
     moveTimer.reset(0);
   }
@@ -282,7 +291,8 @@ export class Actor extends Entity {
 
     this.isMoving = true;
     this.finishMove();
-    moveTimer.reset(1 / this.getSpeed());
+    moveTimer.reset(1 / this.getSpeed() *
+                    this.getDirectionVector().magnitude());
   }
 
   stopMove() {
@@ -310,11 +320,15 @@ export class Actor extends Entity {
     // Round out the location if the movement timer is 0.
     if (moveTimer.isStopped()) {
       this.location = this.location
-          .offset(this.getDirectionVector().scale(lastRemaining * this.getSpeed()))
+          .offset(this.getDirectionVector()
+              .normalized()
+              .scale(lastRemaining * this.getSpeed()))
           .map(Math.round);
     } else {
       this.location = this.location
-          .offset(this.getDirectionVector().scale(dt * this.getSpeed()));
+          .offset(this.getDirectionVector()
+              .normalized()
+              .scale(dt * this.getSpeed()));
     }
 
     var deathTimer = this.getTimer("death");
@@ -451,16 +465,24 @@ export class Avatar extends Player {
     }
 
     // Check for movement.
-    var direction = inputState.held(input.Key.LEFT)   || inputState.held(input.Key.A) ? Directions.W :
-                    inputState.held(input.Key.UP)     || inputState.held(input.Key.W) ? Directions.N :
-                    inputState.held(input.Key.RIGHT)  || inputState.held(input.Key.D) ? Directions.E :
-                    inputState.held(input.Key.DOWN)   || inputState.held(input.Key.S) ? Directions.S :
+    var left = inputState.held(input.Key.LEFT) || inputState.held(input.Key.A);
+    var up = inputState.held(input.Key.UP) || inputState.held(input.Key.W);
+    var right = inputState.held(input.Key.RIGHT) || inputState.held(input.Key.D);
+    var down = inputState.held(input.Key.DOWN) || inputState.held(input.Key.S);
+
+    var direction = left  && up     ? Directions.NW :
+                    left  && down   ? Directions.SW :
+                    right && up     ? Directions.NE :
+                    right && down   ? Directions.SE :
+                    left            ? Directions.W :
+                    up              ? Directions.N :
+                    right           ? Directions.E :
+                    down            ? Directions.S :
                     null;
 
     var didMove = false;
 
     if (direction !== null) {
-      this.navigatingLocation = null;
       this.interactions = [];
       didMove = this.doMove(protocol, direction);
     }

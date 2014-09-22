@@ -80,25 +80,7 @@ def initdb(app):
       wall_tiles[4 + 7 * realm.Region.SIZE] = 46
       wall_tiles[6 + 7 * realm.Region.SIZE] = 46
 
-      passabilities = [0b1111] * (realm.Region.SIZE * realm.Region.SIZE)
-      passabilities[4 + 3 * realm.Region.SIZE] = 0b1110
-      passabilities[5 + 3 * realm.Region.SIZE] = 0b1110
-      passabilities[6 + 3 * realm.Region.SIZE] = 0b1110
-      passabilities[3 + 4 * realm.Region.SIZE] = 0b1101
-      passabilities[4 + 4 * realm.Region.SIZE] = 0b0011
-      passabilities[5 + 4 * realm.Region.SIZE] = 0b1011
-      passabilities[6 + 4 * realm.Region.SIZE] = 0b1001
-      passabilities[7 + 4 * realm.Region.SIZE] = 0b0111
-      passabilities[3 + 5 * realm.Region.SIZE] = 0b1101
-      passabilities[4 + 5 * realm.Region.SIZE] = 0b0111
-      passabilities[6 + 5 * realm.Region.SIZE] = 0b1101
-      passabilities[7 + 5 * realm.Region.SIZE] = 0b0111
-      passabilities[3 + 6 * realm.Region.SIZE] = 0b1101
-      passabilities[4 + 6 * realm.Region.SIZE] = 0b0110
-      passabilities[6 + 6 * realm.Region.SIZE] = 0b1100
-      passabilities[7 + 6 * realm.Region.SIZE] = 0b0111
-      passabilities[4 + 7 * realm.Region.SIZE] = 0b0000
-      passabilities[6 + 7 * realm.Region.SIZE] = 0b0000
+      passabilities = [0b11111111] * (realm.Region.SIZE * realm.Region.SIZE)
 
       region = realm.Region(
           realm_id=windvale.id, location=geometry.Vector2(base_x, base_y),
@@ -119,7 +101,7 @@ def initdb(app):
       body="light",
       hair="brown_messy_1",
       facial="brown_beard",
-      direction=1,
+      direction=0,
       health=75,
       realm_id=windvale.id,
       location=geometry.Vector3(0, 0, 0),
@@ -134,7 +116,7 @@ def initdb(app):
       gender="male",
       body="light",
       hair="brown_messy_1",
-      direction=1,
+      direction=0,
       health=100,
       realm_id=windvale.id,
       location=geometry.Vector3(0, 16, 0),
@@ -146,7 +128,7 @@ def initdb(app):
       gender="male",
       body="light",
       hair="brown_messy_1",
-      direction=1,
+      direction=0,
       health=100,
       realm_id=windvale.id,
       location=geometry.Vector3(16, 16, 0),
@@ -158,7 +140,7 @@ def initdb(app):
       gender="male",
       body="light",
       hair="brown_messy_1",
-      direction=1,
+      direction=0,
       health=100,
       realm_id=windvale.id,
       location=geometry.Vector3(12, 16, 0),
@@ -167,12 +149,12 @@ def initdb(app):
 
   app.store.entities.create(entities.Building(
       location=geometry.Vector3(1, 10, 0),
-      door_location=1,
+      door_location=2,
       realm_id=windvale.id))
 
   app.store.entities.create(entities.Building(
       location=geometry.Vector3(1, 13, 0),
-      door_location=2,
+      door_location=4,
       realm_id=windvale.id))
 
   app.store.entities.create(entities.Tree(
@@ -186,7 +168,7 @@ def initdb(app):
         name="Some Bad Dude",
         gender="male",
         body="smurf",
-        direction=random.randint(0, 3),
+        direction=random.choice(list(entities.Entity.DIRECTION_VECTORS)),
         health=5,
         realm_id=windvale.id,
         location=geometry.Vector3(random.randint(0, 32), random.randint(0, 32), 0),

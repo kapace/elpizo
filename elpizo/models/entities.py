@@ -37,9 +37,13 @@ class Entity(record.ProtobufRecord):
 
   DIRECTION_VECTORS = {
       0: geometry.Vector3( 0, -1,  0),  # N
-      1: geometry.Vector3(-1,  0,  0),  # W
-      2: geometry.Vector3( 0,  1,  0),  # S
-      3: geometry.Vector3( 1,  0,  0)   # E
+      1: geometry.Vector3(-1, -1,  0),  # NW
+      2: geometry.Vector3(-1,  0,  0),  # W
+      3: geometry.Vector3(-1,  1,  0),  # SW
+      4: geometry.Vector3( 0,  1,  0),  # S
+      5: geometry.Vector3( 1,  1,  0),  # SE
+      6: geometry.Vector3( 1,  0,  0),  # E
+      7: geometry.Vector3( 1, -1,  0)   # NE
   }
 
   DIRECTIONS = {v: k for k, v in DIRECTION_VECTORS.items()}

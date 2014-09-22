@@ -721,11 +721,12 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
     var elapsed = this.renderer.elapsed * entity.getSpeed();
 
-    var direction = entity.direction == entities.Directions.N ? "n" :
-                    entity.direction == entities.Directions.W ? "w" :
-                    entity.direction == entities.Directions.S ? "s" :
-                    entity.direction == entities.Directions.E ? "e" :
-                    null;
+    var direction =
+        entity.direction == entities.Directions.N || entity.direction == entities.Directions.NW ? "n" :
+        entity.direction == entities.Directions.W || entity.direction == entities.Directions.SW ? "w" :
+        entity.direction == entities.Directions.S || entity.direction == entities.Directions.SE ? "s" :
+        entity.direction == entities.Directions.E || entity.direction == entities.Directions.NE ? "e" :
+        null;
 
     var spriteNames = getActorSpriteNames(entity);
 
@@ -879,7 +880,7 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
           var halfHeight = this.renderer.toScreenCoords(
               new geometry.Vector2(0, 1)).y / 2;
 
-          if (entity.doorLocation === 2) {
+          if (entity.doorLocation === entities.Directions.S) {
             this.ctx.fillStyle = "black";
             this.ctx.fillRect(doorSOffset.x, doorSOffset.y,
                               GraphicsRenderer.TILE_SIZE,

@@ -43,6 +43,14 @@ export class Vector2 {
     return out;
   }
 
+  magnitude() {
+    return Math.sqrt(this.x * this.x + this.y * this.y);
+  }
+
+  normalized() {
+    return this.copy().scale(1 / this.magnitude());
+  }
+
   equals(other) {
     return this.x === other.x && this.y === other.y;
   }
@@ -101,6 +109,14 @@ export class Vector3 {
     out.y = -out.y;
     out.z = -out.z;
     return out;
+  }
+
+  magnitude() {
+    return Math.sqrt(this.x * this.x + this.y * this.y + this.z * this.z);
+  }
+
+  normalized() {
+    return this.scale(1 / this.magnitude());
   }
 
   equals(other) {

@@ -6,9 +6,13 @@ message Entity {
 
   enum Direction {
     NORTH = 0;
-    WEST = 1;
-    SOUTH = 2;
-    EAST = 3;
+    NORTHWEST = 1;
+    WEST = 2;
+    SOUTHWEST = 3;
+    SOUTH = 4;
+    SOUTHEAST = 5;
+    EAST = 6;
+    NORTHEAST = 7;
   }
 
   required string type = 1;

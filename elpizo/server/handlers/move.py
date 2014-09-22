@@ -16,7 +16,7 @@ def on_move(protocol, actor, message):
   expected_location = geometry.Vector3.from_protobuf(message.location)
 
   if actor.target_location != expected_location or \
-      dt < 1 / actor.speed * 0.25: # compensate for slow connections by 0.25
+      dt < 1 / actor.speed * actor.direction_vector.magnitude() * 0.25: # compensate for slow connections by 0.25
     actor.send(protocol, packets_pb2.TeleportPacket(
         location=actor.location.to_protobuf(),
         direction=actor.direction,
