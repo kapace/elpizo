@@ -25,7 +25,7 @@ export var InteractionsMenu = React.createClass({
     if (actionIndex !== null) {
       var [i, j] = actionIndex;
       var action = this.props.interactions[i].actions[j];
-      action.f(this.props.protocol, this.props.me, this.props.log);
+      action.f(this.props.game.protocol, this.props.me, this.props.game.log);
     }
     this.dismiss();
   },

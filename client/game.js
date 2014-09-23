@@ -18,7 +18,9 @@ module net from "client/util/net";
 module input from "client/util/input";
 module objects from "client/util/objects";
 module resources from "client/util/resources";
+module interactions from "client/ui/overlay/interactions.react";
 module geometry from "client/models/geometry";
+module entities from "client/models/entities";
 module realm from "client/models/realm";
 module ui from "client/ui/main.react";
 module logUi from "client/ui/log.react";
@@ -84,6 +86,9 @@ export class Game extends events.EventEmitter {
     this.graphicsRenderer.on("viewportChange", this.onViewportChange.bind(this));
     this.graphicsRenderer.on("click", this.onClick.bind(this));
 
+    // TODO: move this somewhere less horrible.
+    this.showInventory = false;
+
     // @ifdef DEBUG
     this.setDebug(qs.debug === "on");
     // @endif
@@ -105,7 +110,7 @@ export class Game extends events.EventEmitter {
 
     pos = pos.map(Math.floor);
 
-    this.me.doInteract(pos, this.protocol, this.graphicsRenderer);
+    this.doInteract(pos);
   }
 
   detectFeatures() {
@@ -269,6 +274,107 @@ export class Game extends events.EventEmitter {
     this.realm = realm;
   }
 
+  doInteract(location) {
+    this.graphicsRenderer.removeComponent("interactions");
+
+    var entities = this.realm.getAllEntities().filter((entity) =>
+        entity.getBounds().intersect(
+            new geometry.Rectangle(location.x, location.y, 1, 1)) !== null);
+
+    if (entities.length > 0) {
+      this.graphicsRenderer.addComponent(
+          "interactions",
+          interactions.InteractionsMenu({
+              me: this.me,
+              game: this,
+              entities: entities,
+              location: location
+          }));
+    }
+  }
+
+  doMove(direction) {
+    var didMove = false;
+    if (this.me.direction !== direction) {
+      // Send a turn packet.
+      this.me.turn(direction);
+      this.protocol.send(new packets.TurnPacket({direction: direction}));
+      this.me.getTimer("turn").reset(entities.Actor.TURN_TIME);
+      return;
+    }
+
+    var targetLocation = this.me.getTargetLocation();
+    var targetBounds = this.me.bbox.offset(targetLocation);
+    var targetEntities = this.realm.getAllEntities().filter((entity) =>
+        (entity.getBounds().intersect(targetBounds) !== null ||
+         entity.getBounds().intersect(this.me.getBounds()) !== null) &&
+        entity !== this.me);
+
+    // Movement mode logic.
+    if (this.realm.isPassableBy(this.me, this.me.direction)) {
+      this.me.move();
+      didMove = true;
+
+      this.protocol.send(new packets.MovePacket({location: targetLocation}));
+
+      targetEntities.forEach((entity) =>
+        entity.onContact(this.protocol, this.me));
+    }
+    return didMove;
+  }
+
+  updateAvatar(dt) {
+    // Don't allow any avatar updates if there are any timers pending.
+    if (!this.me.areAllTimersStopped()) {
+      return;
+    }
+
+    if (this.inputState.stick(input.Key.I)) {
+      this.showInventory = !this.showInventory;
+      return;
+    }
+
+    if (this.inputState.stick(input.Key.ESCAPE)) {
+      this.showInventory = false;
+      return;
+    }
+
+    // Check for movement.
+    var left = this.inputState.held(input.Key.LEFT) ||
+               this.inputState.held(input.Key.A);
+
+    var up = this.inputState.held(input.Key.UP) ||
+             this.inputState.held(input.Key.W);
+
+    var right = this.inputState.held(input.Key.RIGHT) ||
+                this.inputState.held(input.Key.D);
+
+    var down = this.inputState.held(input.Key.DOWN) ||
+               this.inputState.held(input.Key.S);
+
+    var direction = left  && up     ? entities.Directions.NW :
+                    left  && down   ? entities.Directions.SW :
+                    right && up     ? entities.Directions.NE :
+                    right && down   ? entities.Directions.SE :
+                    left            ? entities.Directions.W :
+                    up              ? entities.Directions.N :
+                    right           ? entities.Directions.E :
+                    down            ? entities.Directions.S :
+                    null;
+
+    var didMove = false;
+
+    if (direction !== null) {
+      didMove = this.doMove(direction);
+    }
+
+    if (!didMove && this.me.isMoving) {
+      // We've stopped moving entirely.
+      this.me.isMoving = false;
+      this.protocol.send(new packets.StopMovePacket());
+    }
+  }
+
   update(dt) {
     if (this.inputState.stick(input.Key.RETURN) ||
         this.inputState.stick(input.Key.T)) {
@@ -283,7 +389,7 @@ export class Game extends events.EventEmitter {
 
     // Handle avatar updates.
     if (this.me !== null) {
-      this.me.updateAsAvatar(dt, this.inputState, this.protocol);
+      this.updateAvatar(dt);
       this.graphicsRenderer.center(this.me.location);
     }
   }

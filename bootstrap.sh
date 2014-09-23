@@ -1,8 +1,10 @@
 #!/bin/bash
+apt-get update
+apt-get install -y software-properties-common
 add-apt-repository -y ppa:chris-lea/node.js
 apt-get update
 apt-get install -y libpython3.4-dev python3.4 nodejs git build-essential \
-                   libtool autoconf redis-server nginx
+                   libtool autoconf redis-server nginx curl
 ln -s /usr/bin/nodejs /usr/bin/node
 curl https://bootstrap.pypa.io/ez_setup.py -o - | python3.4
 easy_install-3.4 pip

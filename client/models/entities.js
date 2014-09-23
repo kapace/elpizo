@@ -2,7 +2,6 @@ module geometry from "client/models/geometry";
 module itemRegistry from "client/models/items/registry";
 module packets from "client/protos/packets";
 module realm from "client/models/realm";
-module interactions from "client/ui/overlay/interactions.react";
 module input from "client/util/input";
 module timing from "client/util/timing";
 
@@ -390,114 +389,8 @@ export class NPC extends Actor {
 }
 
 export class Avatar extends Player {
-  constructor(id, message) {
-    super(id, message);
-    this.interactions = {};
-    this.showInventory = false;
-
-    this.navigatingLocation = null;
-  }
-
   accept(visitor) {
     visitor.visitAvatar(this);
-  }
-
-  doInteract(location, protocol, renderer) {
-    renderer.removeComponent("interactions");
-
-    var entities = this.realm.getAllEntities().filter((entity) =>
-        entity !== this &&
-        entity.getBounds().intersect(
-            new geometry.Rectangle(location.x, location.y, 1, 1)) !== null);
-
-    if (entities.length > 0) {
-      renderer.addComponent(
-          "interactions",
-          interactions.InteractionsMenu({
-              me: this,
-              entities: entities,
-              protocol: protocol,
-              location: location
-          }));
-    }
-  }
-
-  doMove(protocol, direction) {
-    var didMove = false;
-    if (this.direction !== direction) {
-      // Send a turn packet.
-      this.turn(direction);
-      protocol.send(new packets.TurnPacket({direction: direction}));
-      this.getTimer("turn").reset(Actor.TURN_TIME);
-      return;
-    }
-
-    var targetLocation = this.getTargetLocation();
-    var targetBounds = this.bbox.offset(targetLocation);
-    var targetEntities = this.realm.getAllEntities().filter((entity) =>
-        (entity.getBounds().intersect(targetBounds) !== null ||
-         entity.getBounds().intersect(this.getBounds()) !== null) &&
-        entity !== this);
-
-    // Movement mode logic.
-    if (this.realm.isPassableBy(this, this.direction)) {
-      this.move();
-      didMove = true;
-
-      protocol.send(new packets.MovePacket({location: targetLocation}));
-
-      targetEntities.forEach((entity) =>
-        entity.onContact(protocol, this));
-    }
-    return didMove;
-  }
-
-  updateAsAvatar(dt, inputState, protocol) {
-    // Don't allow any avatar updates if there are any timers pending.
-    if (!this.areAllTimersStopped()) {
-      return;
-    }
-
-    if (inputState.stick(input.Key.I)) {
-      this.interactions = [];
-      this.showInventory = !this.showInventory;
-      return;
-    }
-
-    if (inputState.stick(input.Key.ESCAPE)) {
-      this.interactions = [];
-      this.showInventory = false;
-      return;
-    }
-
-    // Check for movement.
-    var left = inputState.held(input.Key.LEFT) || inputState.held(input.Key.A);
-    var up = inputState.held(input.Key.UP) || inputState.held(input.Key.W);
-    var right = inputState.held(input.Key.RIGHT) || inputState.held(input.Key.D);
-    var down = inputState.held(input.Key.DOWN) || inputState.held(input.Key.S);
-
-    var direction = left  && up     ? Directions.NW :
-                    left  && down   ? Directions.SW :
-                    right && up     ? Directions.NE :
-                    right && down   ? Directions.SE :
-                    left            ? Directions.W :
-                    up              ? Directions.N :
-                    right           ? Directions.E :
-                    down            ? Directions.S :
-                    null;
-
-    var didMove = false;
-
-    if (direction !== null) {
-      this.interactions = [];
-      didMove = this.doMove(protocol, direction);
-    }
-
-    if (!didMove && this.isMoving) {
-      // We've stopped moving entirely.
-      this.isMoving = false;
-      protocol.send(new packets.StopMovePacket());
-    }
   }
 }
 
