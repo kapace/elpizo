@@ -1,4 +1,5 @@
 import functools
+import math
 
 
 @functools.total_ordering
@@ -21,6 +22,12 @@ class Vector2(object):
 
   def negate(self):
     return self.__class__(-self.x, -self.y)
+
+  def magnitude(self):
+    return math.sqrt(self.x * self.x + self.y * self.y)
+
+  def normalized(self):
+    return self.scale(1 / self.magnitude())
 
   def __eq__(self, other):
     return self.x == other.x and self.y == other.y
@@ -59,6 +66,12 @@ class Vector3(object):
 
   def negate(self):
     return self.__class__(-self.x, -self.y, -self.z)
+
+  def magnitude(self):
+    return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+
+  def normalized(self):
+    return self.scale(1 / self.magnitude())
 
   def __eq__(self, other):
     return self.x == other.x and self.y == other.y and self.z == other.z

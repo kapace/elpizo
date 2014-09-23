@@ -1,6 +1,8 @@
 module util from "util";
 
-export var hasOwnProp = Object.prototype.hasOwnProperty;
+export function has(obj, field) {
+  return Object.prototype.hasOwnProperty.call(obj, field);
+}
 
 export function extend(dest) {
   // NOTE: jstransform miscompiles ...src, so we have to do it manually here.
@@ -8,7 +10,7 @@ export function extend(dest) {
 
   srcs.forEach((src) => {
     for (var k in src) {
-      if (!hasOwnProp.call(src, k)) {
+      if (!has(src, k)) {
         continue;
       }
 

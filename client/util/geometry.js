@@ -43,6 +43,18 @@ export class Vector2 {
     return out;
   }
 
+  magnitudeSquared() {
+    return this.x * this.x + this.y * this.y;
+  }
+
+  magnitude() {
+    return Math.sqrt(this.magnitudeSquared());
+  }
+
+  normalized() {
+    return this.copy().scale(1 / this.magnitude());
+  }
+
   equals(other) {
     return this.x === other.x && this.y === other.y;
   }
@@ -103,6 +115,18 @@ export class Vector3 {
     return out;
   }
 
+  magnitudeSquared() {
+    return this.x * this.x + this.y * this.y + this.z * this.z;
+  }
+
+  magnitude() {
+    return Math.sqrt(this.magnitudeSquared());
+  }
+
+  normalized() {
+    return this.scale(1 / this.magnitude());
+  }
+
   equals(other) {
     return this.x === other.x && this.y === other.y && this.z === other.z;
   }
@@ -124,12 +148,16 @@ export class Rectangle {
     return new Rectangle(this.left, this.top, this.width, this.height);
   }
 
-  getTopLeft() {
+  getLeftTop() {
     return new Vector2(this.left, this.top);
   }
 
-  getBottomRight() {
+  getRightBottom() {
     return new Vector2(this.getRight(), this.getBottom());
+  }
+
+  getSize() {
+    return new Vector2(this.width, this.height);
   }
 
   getRight() {
@@ -138,6 +166,18 @@ export class Rectangle {
 
   getBottom() {
     return this.top + this.height;
+  }
+
+  distanceTo(other) {
+    var [mostLeft, mostRight] =
+        this.left < other.left ? [this, other] : [other, this];
+    var xDist = Math.max(0, mostRight.left - mostLeft.getRight());
+
+    var [upper, lower] =
+        this.top < other.top ? [this, other] : [other, this];
+    var yDist = Math.max(0, lower.top - upper.getBottom());
+
+    return new Vector2(xDist, yDist).magnitude();
   }
 
   intersect(other) {

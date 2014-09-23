@@ -13,5 +13,5 @@ message Region {
 
 message Realm {
   required string name = 1;
-  required Vector2 size = 2;
+  required Rectangle bbox = 2;
 }

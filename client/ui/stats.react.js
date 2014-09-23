@@ -27,13 +27,14 @@ var Avatar = React.createClass({
   }
 });
 
-var HealthTicks = React.createClass({
+var Health = React.createClass({
   render: function () {
-    var ticks = [];
-    for (var i = 0; i < this.props.health; ++i) {
-      ticks.push(<li key={i} className="tick"></li>);
-    }
-    return <ul className="health">{ticks}</ul>;
+    return <div className="health">
+      <div className="value"
+           style={{width: (this.props.health / this.props.max * 100) + "%"}}>
+      </div>
+      <div className="caption">{this.props.health} / {this.props.max}</div>
+    </div>;
   }
 });
 
@@ -59,7 +60,7 @@ export var Stats = React.createClass({
         </button>
         <div className="info">
           <div className="heading">{me.name}</div>
-          <HealthTicks health={me.health} />
+          <Health health={me.health} max={100} />
         </div>
       </div>
     </div>;

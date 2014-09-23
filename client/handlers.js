@@ -67,7 +67,7 @@ export function install(game) {
       return;
     }
 
-    if (objects.hasOwnProp.call(game.realm.entities, origin)) {
+    if (objects.has(game.realm.entities, origin)) {
       console.warn("Entity " + origin + " already exists.");
     }
 
@@ -105,7 +105,7 @@ export function install(game) {
   }));
 
   protocol.on(packets.Packet.Type.ENTER, (origin, message) => {
-    if (objects.hasOwnProp.call(game.realm.entities, origin)) {
+    if (objects.has(game.realm.entities, origin)) {
       return;
     }
 

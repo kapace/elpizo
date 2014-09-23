@@ -33,14 +33,19 @@ export class GraphicsRenderer extends events.EventEmitter {
     this.canvas.height = 0;
     this.el.appendChild(this.canvas);
 
-    this.topLeft = new geometry.Vector2(0, 0);
+    this.canvas.onclick = this.onClick.bind(this);
+    this.canvas.onmousemove = this.onMouseMove.bind(this);
+    this.canvas.onmouseout = this.onMouseOut.bind(this);
+
+    this.leftTop = new geometry.Vector2(0, 0);
+    this.highlight = null;
 
     this.resources = resources;
-    this.currentRealm = null;
 
-    this.regionTerrainCache = {};
     this.elapsed = 0;
     this.lastRenderTime = 0;
+
+    this.dirty = true;
 
     this.nextComponentKey = 0;
 
@@ -59,18 +64,37 @@ export class GraphicsRenderer extends events.EventEmitter {
     this.transitionTimer = new timing.CountdownTimer();
   }
 
+  eventToRealmCoords(e) {
+    var screenCoords = new geometry.Vector2(e.clientX - this.sBounds.left,
+                                            e.clientY - this.sBounds.top);
+
+    return this.fromScreenCoords(screenCoords).offset(this.leftTop);
+  }
+
+  onClick(e) {
+    this.emit("click", this.eventToRealmCoords(e));
+  }
+
+  onMouseMove(e) {
+    this.highlight = this.eventToRealmCoords(e).map(Math.floor);
+  }
+
+  onMouseOut(e) {
+    this.highlight = null;
+  }
+
   ensureBackBuffer(name) {
-    if (!objects.hasOwnProp.call(this.backBuffers, name)) {
-      var backbuffer = document.createElement("canvas");
-      backbuffer.width = this.canvas.width;
-      backbuffer.height = this.canvas.height;
-      this.backBuffers[name] = backbuffer;
+    if (!objects.has(this.backBuffers, name)) {
+      var backBuffer = document.createElement("canvas");
+      backBuffer.width = this.canvas.width;
+      backBuffer.height = this.canvas.height;
+      this.backBuffers[name] = backBuffer;
     }
     return this.backBuffers[name];
   }
 
   addComponent(id, comp) {
-    delete this.components[id];
+    this.removeComponent(id);
 
     objects.extend(comp.props, {
         renderer: this,
@@ -79,6 +103,10 @@ export class GraphicsRenderer extends events.EventEmitter {
 
     ++this.nextComponentKey;
     this.components[id] = comp;
+  }
+
+  removeComponent(id) {
+    delete this.components[id];
   }
 
   addChatBubble(entity, message) {
@@ -94,14 +122,14 @@ export class GraphicsRenderer extends events.EventEmitter {
   // @ifdef DEBUG
   setDebug(debug) {
     this.debug = debug;
-    this.regionTerrainCache = {};
+    this.dirty = true;
   }
   // @endif
 
   center(position) {
     var bounds = this.getViewportBounds();
 
-    this.setTopLeft(new geometry.Vector2(
+    this.setLeftTop(new geometry.Vector2(
         position.x - Math.round(bounds.width / 2),
         position.y - Math.round(bounds.height / 2)));
   }
@@ -136,9 +164,9 @@ export class GraphicsRenderer extends events.EventEmitter {
     return location.scale(1 / GraphicsRenderer.TILE_SIZE);
   }
 
-  setTopLeft(v) {
+  setLeftTop(v) {
     var previous = this.getViewportBounds();
-    this.topLeft = v;
+    this.leftTop = v;
     this.emit("viewportChange");
   }
 
@@ -168,6 +196,10 @@ export class GraphicsRenderer extends events.EventEmitter {
 
   refit() {
     this.setScreenViewportSize(window.innerWidth, window.innerHeight);
+
+    // Clobber all back-buffers.
+    this.backBuffers = {};
+
     this.emit("refit", this.sBounds);
   }
 
@@ -175,7 +207,7 @@ export class GraphicsRenderer extends events.EventEmitter {
     var size = this.fromScreenCoords(new geometry.Vector2(
         this.sBounds.width, this.sBounds.height));
 
-    return new geometry.Rectangle(this.topLeft.x, this.topLeft.y,
+    return new geometry.Rectangle(this.leftTop.x, this.leftTop.y,
                                   Math.ceil(size.x), Math.ceil(size.y));
   }
 
@@ -195,23 +227,18 @@ export class GraphicsRenderer extends events.EventEmitter {
     var composite = this.ensureBackBuffer("composite");
     var retain = this.ensureBackBuffer("retain");
 
-    if (realm !== this.currentRealm) {
-      // Copy the last composite and retain it.
-      var retainCtx = this.prepareContext(retain);
-      retainCtx.clearRect(0, 0, retain.width, retain.height);
-      retainCtx.drawImage(composite, 0, 0);
-      this.transitionTimer.reset(0.25);
-    }
-
     var illumination = this.ensureBackBuffer("illumination");
     var illuminationCtx = this.prepareContext(illumination);
     illuminationCtx.globalCompositeOperation = "lighter";
 
     this.elapsed += dt;
+    this.isHighlighting = false;
     this.renderTerrain(realm, me);
     this.renderEntities(realm, me);
     this.renderAmbientIllumination(realm, illuminationCtx);
     this.updateComponents(dt);
+
+    this.canvas.style.cursor = this.isHighlighting ? "pointer" : "default";
 
     var albedo = this.ensureBackBuffer("albedo");
     var albedoCtx = this.prepareContext(albedo);
@@ -220,7 +247,7 @@ export class GraphicsRenderer extends events.EventEmitter {
     albedoCtx.clearRect(0, 0, composite.width, composite.height);
     albedoCtx.drawImage(this.ensureBackBuffer("terrain"), 0, 0);
     albedoCtx.drawImage(this.ensureBackBuffer("entity"), 0, 0);
-    albedoCtx.globalAlpha = 0.5;
+    albedoCtx.globalAlpha = 0.25;
     albedoCtx.drawImage(this.ensureBackBuffer("xray"), 0, 0);
     albedoCtx.globalAlpha = 1.0;
     albedoCtx.restore();
@@ -228,9 +255,12 @@ export class GraphicsRenderer extends events.EventEmitter {
     var compositeCtx = this.prepareContext(composite);
     compositeCtx.save();
     compositeCtx.clearRect(0, 0, composite.width, composite.height);
+
     compositeCtx.drawImage(albedo, 0, 0);
+
     compositeCtx.globalCompositeOperation = "multiply";
     compositeCtx.drawImage(illumination, 0, 0);
+
     compositeCtx.restore();
 
     var ctx = this.prepareContext(this.canvas);
@@ -243,6 +273,7 @@ export class GraphicsRenderer extends events.EventEmitter {
     ctx.drawImage(composite, 0, 0);
 
     this.lastRenderTime = this.lastRenderTime * 0.9 + dt * 0.1;
+    this.dirty = false;
   }
 
   renderAmbientIllumination(realm, ctx) {
@@ -255,39 +286,27 @@ export class GraphicsRenderer extends events.EventEmitter {
     Object.keys(components).forEach((k) => {
       var comp = components[k];
 
-      var timer = comp.props.timer;
-      if (timer === null) {
-        return;
+      if (objects.has(comp.props, "timer")) {
+        var timer = comp.props.timer;
+        timer.update(dt);
+
+        if (timer.isStopped()) {
+          return;
+        }
       }
 
-      timer.update(dt);
-      if (!timer.isStopped()) {
-        this.components[k] = comp;
-      }
+      this.components[k] = comp;
     });
   }
 
   renderTerrain(r, me) {
     var viewport = this.getViewportBounds();
 
-    if (r !== this.currentRealm) {
-      this.regionTerrainCache = {};
-      this.currentRealm = r;
-    } else {
-      // Evict parts of the terrain cache to keep it synchronized with realm
-      // regions.
-      Object.keys(this.regionTerrainCache).forEach((k) => {
-        if (!r.regions[k]) {
-          delete this.regionTerrainCache[k];
-        }
-      });
-    }
-
     var terrainCanvas = this.ensureBackBuffer("terrain");
     var ctx = this.prepareContext(terrainCanvas);
     ctx.clearRect(0, 0, terrainCanvas.width, terrainCanvas.height);
 
-    var sOffset = this.toScreenCoords(this.topLeft.negate());
+    var sOffset = this.toScreenCoords(this.leftTop.negate());
 
     // Only render the regions bounded by the viewport.
     for (var y = realm.Region.floor(viewport.top);
@@ -309,12 +328,13 @@ export class GraphicsRenderer extends events.EventEmitter {
 
         // If this region hasn't been rendered yet, then we render it and add it
         // to the cache.
-        if (!objects.hasOwnProp.call(this.regionTerrainCache, key)) {
-          this.regionTerrainCache[key] =
+        if (!objects.has(region.rendererPrivate, "terrainAlbedo") ||
+            this.dirty) {
+          region.rendererPrivate.terrainAlbedo =
               this.renderRegionTerrainAsBuffer(region);
         }
 
-        var buffer = this.regionTerrainCache[key];
+        var buffer = region.rendererPrivate.terrainAlbedo;
         ctx.save();
         ctx.translate(sLeft, sTop);
         ctx.drawImage(buffer, 0, 0);
@@ -365,13 +385,18 @@ export class GraphicsRenderer extends events.EventEmitter {
     xrayCtx.save();
     xrayCtx.clearRect(0, 0, xrayCanvas.width, xrayCanvas.height);
 
+    var terrainCanvas = this.ensureBackBuffer("terrain");
+    var terrainCtx = this.prepareContext(terrainCanvas);
+
     sortedEntities.forEach((entity) => {
-      this.renderEntity(entity, me, ctx, {pass: "albedo"});
-      this.renderEntity(entity, me, xrayCtx, {pass: "xray"});
+      // Entities are allowed to draw to the terrain canvas (if they really
+      // want to.)
+      this.renderEntity(entity, me, terrainCtx, "terrain");
+      this.renderEntity(entity, me, ctx, "albedo");
+      this.renderEntity(entity, me, xrayCtx, "xray");
     });
     ctx.restore();
     xrayCtx.restore();
-
 
     var illuminationCanvas = this.ensureBackBuffer("illumination");
     var illuminationCtx = this.prepareContext(illuminationCanvas);
@@ -380,9 +405,9 @@ export class GraphicsRenderer extends events.EventEmitter {
                               illuminationCanvas.width,
                               illuminationCanvas.height);
     // We run the illumination pass separately as we'd like to have access to
-    // albedo.
+    // albedo during illumination.
     sortedEntities.forEach((entity) => {
-      this.renderEntity(entity, me, illuminationCtx, {pass: "illumination"});
+      this.renderEntity(entity, me, illuminationCtx, "illumination");
     })
     illuminationCtx.restore();
   }
@@ -480,13 +505,13 @@ export class GraphicsRenderer extends events.EventEmitter {
     return canvas;
   }
 
-  renderEntity(entity, me, ctx, options) {
+  renderEntity(entity, me, ctx, pass) {
     var sOffset = this.toScreenCoords(
-        entity.location.offset(this.topLeft.negate()));
+        entity.location.offset(this.leftTop.negate()));
 
     ctx.save();
     ctx.translate(sOffset.x, sOffset.y);
-    entity.accept(new GraphicsRendererVisitor(this, me, ctx, options));
+    entity.accept(new GraphicsRendererVisitor(this, me, ctx, pass));
     ctx.restore();
   }
 }
@@ -564,6 +589,28 @@ function drawAutotileGrid(renderer, grid, autotile, ctx) {
   }
 }
 
+function roundedRect(ctx, x, y, w, h, r, options) {
+  options = options || {};
+
+  if (w < 2 * r) {
+    r = w / 2;
+  }
+
+  if (h < 2 * r) {
+    r = h / 2;
+  }
+
+  ctx.beginPath();
+
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y,     x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x,     y + h, r);
+  ctx.arcTo(x,     y + h, x,     y,     r);
+  ctx.arcTo(x,     y,     x + w, y,     r);
+
+  ctx.closePath();
+}
+
 function drawAutotileRectangle(renderer, rect, autotile, ctx) {
   var g = new grid.Grid(rect.width, rect.height);
   g.fill(true);
@@ -601,48 +648,82 @@ export function getActorSpriteNames(actor) {
   return names;
 }
 
-
 class GraphicsRendererVisitor extends entities.EntityVisitor {
-  constructor(renderer, me, ctx, options) {
+  constructor(renderer, me, ctx, pass) {
     this.renderer = renderer;
     this.me = me;
     this.ctx = ctx;
-    this.options = options || {};
+    this.pass = pass;
   }
 
   visitEntity(entity) {
-    if (this.options.pass === "illumination") {
-      return;
-    }
-
-    // @ifdef DEBUG
-    if (this.renderer.debug) {
-      this.ctx.save();
-      this.ctx.fillStyle = "rgba(0, 0, 255, 0.25)";
-      this.ctx.strokeStyle = "rgba(0, 0, 255, 0.75)";
-
-      var sOffset = this.renderer.toScreenCoords(new geometry.Vector2(
-          entity.bbox.left, entity.bbox.top));
-      var sSize = this.renderer.toScreenCoords(new geometry.Vector2(
-          entity.bbox.width, entity.bbox.height));
-      this.ctx.translate(sOffset.x, sOffset.y);
-      this.ctx.fillRect(0, 0, sSize.x, sSize.y);
-      this.ctx.strokeRect(0, 0, sSize.x, sSize.y);
-      this.ctx.fillStyle = "rgba(0, 0, 255, 0.75)";
-      this.ctx.font = "12px sans-serif";
-      this.ctx.textAlign = "center";
-      this.ctx.textBaseline = "middle";
-      this.ctx.fillText("(id: " + entity.id + ")", sSize.x / 2, sSize.y / 2);
-      this.ctx.restore();
-    }
-    // @endif
-
     super.visitEntity(entity);
+
+    var isHighlighted = this.renderer.highlight !== null &&
+        entity.getBounds().contains(
+            new geometry.Rectangle(this.renderer.highlight.x,
+                                   this.renderer.highlight.y,
+                                   1, 1));
+
+    if (isHighlighted) {
+      this.renderer.isHighlighting = true;
+    }
+
+    if (this.pass === "albedo") {
+      if (isHighlighted) {
+        var sOffset = this.renderer.toScreenCoords(new geometry.Vector2(
+            entity.bbox.left, entity.bbox.top));
+        var sSize = this.renderer.toScreenCoords(new geometry.Vector2(
+            entity.bbox.width, entity.bbox.height));
+
+        this.ctx.save();
+        this.ctx.translate(sOffset.x, sOffset.y);
+
+        this.ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+        this.ctx.strokeStyle = "rgba(0, 0, 255, 0.25)";
+        this.ctx.lineWidth = 4;
+        roundedRect(this.ctx, -4, -4, sSize.x + 8, sSize.y + 8, 4);
+        this.ctx.fill();
+        this.ctx.stroke();
+
+        this.ctx.restore();
+      }
+
+      // @ifdef DEBUG
+      if (this.renderer.debug) {
+        this.ctx.save();
+        this.ctx.fillStyle = "rgba(0, 0, 255, 0.25)";
+        this.ctx.strokeStyle = "rgba(0, 0, 255, 0.75)";
+
+        var sOffset = this.renderer.toScreenCoords(new geometry.Vector2(
+            entity.bbox.left, entity.bbox.top));
+        var sSize = this.renderer.toScreenCoords(new geometry.Vector2(
+            entity.bbox.width, entity.bbox.height));
+        this.ctx.translate(sOffset.x, sOffset.y);
+        this.ctx.fillRect(0, 0, sSize.x, sSize.y);
+        this.ctx.strokeRect(0, 0, sSize.x, sSize.y);
+        this.ctx.fillStyle = "rgba(0, 0, 255, 0.75)";
+        this.ctx.font = "12px sans-serif";
+        this.ctx.textAlign = "center";
+        this.ctx.textBaseline = "middle";
+        this.ctx.fillText("(id: " + entity.id + ")", sSize.x / 2, sSize.y / 2);
+        this.ctx.restore();
+      }
+      // @endif
+    }
   }
 
   visitActor(entity) {
-    if (this.options.pass === "illumination") {
-      return;
+    super.visitActor(entity);
+
+    var isHighlighted = this.renderer.highlight !== null &&
+        entity.getBounds().contains(
+            new geometry.Rectangle(this.renderer.highlight.x,
+                                   this.renderer.highlight.y,
+                                   1, 1));
+
+    if (isHighlighted) {
+      this.renderer.isHighlighting = true;
     }
 
     var state = entity.isMoving ? "walking" :
@@ -650,92 +731,84 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
 
     var elapsed = this.renderer.elapsed * entity.getSpeed();
 
-    var direction = entity.direction == entities.Directions.N ? "n" :
-                    entity.direction == entities.Directions.W ? "w" :
-                    entity.direction == entities.Directions.S ? "s" :
-                    entity.direction == entities.Directions.E ? "e" :
-                    null;
+    var direction =
+        entity.direction == entities.Directions.N || entity.direction == entities.Directions.NW ? "n" :
+        entity.direction == entities.Directions.W || entity.direction == entities.Directions.SW ? "w" :
+        entity.direction == entities.Directions.S || entity.direction == entities.Directions.SE ? "s" :
+        entity.direction == entities.Directions.E || entity.direction == entities.Directions.NE ? "e" :
+        null;
 
-    getActorSpriteNames(entity).forEach((name) => {
-        sprites[name][state][direction]
-            .render(this.renderer.resources, this.ctx, elapsed);
-    })
+    var spriteNames = getActorSpriteNames(entity);
 
-    // Render the name card.
-    if (this.options.pass === "xray") {
-      this.ctx.save();
-      this.ctx.translate(16, -entity.getHeight() * 32 + 10);
+    switch (this.pass) {
+      case "albedo":
+      case "xray":
+        spriteNames.forEach((name) => {
+            sprites[name][state][direction]
+                .render(this.renderer.resources, this.ctx, elapsed);
+        });
 
-      var baseWidth = this.ctx.measureText(entity.name).width;
-      var width = baseWidth + 8;
+        var size = this.renderer.toScreenCoords(entity.bbox.getSize());
 
-      this.ctx.fillStyle = "rgb(255, 255, 255)";
-      this.ctx.fillRect(-width / 2, 0, width, 20);
+        if (isHighlighted) {
+          // Render name card.
+          this.ctx.save();
+          this.ctx.translate(0, size.y + 4);
 
-      this.ctx.textAlign = "center";
-      this.ctx.textBaseline = "middle";
+          this.ctx.font = "12px \"Roboto Condensed\"";
 
-      var textColor = chroma(colors.makeColorForString(entity.name))
-          .darken(10).hex();
-      this.ctx.fillStyle = textColor;
-      this.ctx.fillText(entity.name, 0, 10);
-      this.ctx.restore();
+          var baseWidth = this.ctx.measureText(entity.name).width;
+          var width = baseWidth + 8;
+
+          this.ctx.translate(-width / 2 + size.x / 2, 0);
+
+          var accentColor = chroma(colors.makeColorForString(entity.name))
+              .darken(10).hex();
+
+          this.ctx.textBaseline = "middle";
+
+          roundedRect(this.ctx, 0, -2, width, 16 + 4, 2);
+          this.ctx.fillStyle = accentColor;
+          this.ctx.fill();
+
+          this.ctx.fillStyle = "#fff";
+          roundedRect(this.ctx, 0, 16, width, 2, 2);
+          this.ctx.fill();
+
+          this.ctx.fillStyle = "#f77";
+          roundedRect(this.ctx, 0, 16, Math.floor(entity.health / 100 * width), 2,
+                      2);
+          this.ctx.fill();
+
+          this.ctx.fillStyle = "#fff";
+          this.ctx.fillText(entity.name, 4, 8);
+
+          this.ctx.restore();
+        }
+        break;
     }
-
-    super.visitActor(entity);
-  }
-
-  visitFixture(entity) {
-    if (this.options.pass === "illumination" || this.options.pass === "xray") {
-      return;
-    }
-
-    sprites[["fixture", entity.fixtureType].join(".")]
-        .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
-
-    super.visitFixture(entity);
   }
 
   visitDrop(entity) {
-    if (this.options.pass === "illumination" || this.options.pass === "xray") {
-      return;
-    }
-
-    sprites[["item", entity.item.type].join(".")]
-        .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
-
     super.visitDrop(entity);
+
+    if (this.pass === "albedo") {
+      sprites[["item", entity.item.type].join(".")]
+          .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
+    }
   }
 
   visitTree(entity) {
-    if (this.options.pass === "illumination" || this.options.pass === "xray") {
-      return;
-    }
-
-    var stage = {
-        0: "seedling",
-        1: "sapling",
-        2: "mature"
-    }[entity.growthStage];
-
-    sprites[["tree", entity.species, stage].join(".")]
-        .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
-
     super.visitTree(entity);
-  }
 
-  visitPlayer(entity) {
-    if (this.options.pass === "illumination") {
-      return;
+    if (this.pass === "albedo") {
+      sprites[["tree", entity.species, entity.getGrowthStageName()].join(".")]
+          .render(this.renderer.resources, this.ctx, this.renderer.elapsed);
     }
-
-    super.visitPlayer(entity);
   }
 
   visitBuilding(entity) {
-    if (this.options.pass === "xray") {
-      return;
-    }
+    super.visitBuilding(entity);
 
     this.ctx.save();
 
@@ -755,72 +828,126 @@ class GraphicsRendererVisitor extends entities.EntityVisitor {
       drawInterior = t !== 0;
     }
 
-    if (drawInterior && this.options.pass === "illumination") {
-      var buildingInteriorIllumination =
-          this.renderer.ensureBackBuffer("buildingInteriorIllumination");
+    switch (this.pass) {
+      case "terrain":
+        if (drawInterior) {
+          if (!objects.has(entity.rendererPrivate, "terrainAlbedo") ||
+              this.renderer.dirty) {
+            // Draw some stuff to the entity buffer.
+            var terrainCanvas = document.createElement("canvas");
+            entity.rendererPrivate.terrainAlbedo = terrainCanvas;
 
-      var buildingInteriorIlluminationCtx =
-          this.renderer.prepareContext(buildingInteriorIllumination);
-      buildingInteriorIlluminationCtx.clearRect(0, 0,
-                                                this.renderer.canvas.width,
-                                                this.renderer.canvas.height);
-      buildingInteriorIlluminationCtx.drawImage(
-          this.renderer.ensureBackBuffer("entity"), 0, 0);
+            var terrainCanvasSize =
+                this.renderer.toScreenCoords(entity.bbox.getSize());
+            terrainCanvas.width = terrainCanvasSize.x;
+            terrainCanvas.height = terrainCanvasSize.y;
 
-      var sOffset = this.renderer.toScreenCoords(entity.location);
+            var terrainContext = this.renderer.prepareContext(terrainCanvas);
 
-      buildingInteriorIlluminationCtx.save();
-      buildingInteriorIlluminationCtx.globalCompositeOperation = "source-out";
+            drawAutotileRectangle(this.renderer,
+                                  new geometry.Rectangle(0, 0,
+                                                         entity.bbox.width,
+                                                         entity.bbox.height),
+                                  sprites["tile.dirt"],
+                                  terrainContext);
+          }
 
-      var sOffset2 = this.renderer.toScreenCoords(entity.location.offset(
-          this.renderer.topLeft.negate()));
-      buildingInteriorIlluminationCtx.translate(sOffset2.x, sOffset2.y);
+          var sOffset = this.renderer.toScreenCoords(entity.bbox.getLeftTop());
+          this.ctx.drawImage(entity.rendererPrivate.terrainAlbedo,
+                             sOffset.x, sOffset.y);
+        }
 
-      var sBboxOffset = this.renderer.toScreenCoords(new geometry.Vector2(
-          entity.bbox.left, entity.bbox.top));
-      var sBboxSize = this.renderer.toScreenCoords(new geometry.Vector2(
-          entity.bbox.width, entity.bbox.height));
+        break;
 
-      buildingInteriorIlluminationCtx.fillStyle = "rgb(255, 255, 255)";
-      buildingInteriorIlluminationCtx.fillRect(
-          sBboxOffset.x, sBboxOffset.y, sBboxSize.x, sBboxSize.y);
-      buildingInteriorIlluminationCtx.restore();
+      case "albedo":
+        if (drawExterior) {
+          if (!objects.has(entity.rendererPrivate, "wallAlbedo") ||
+              this.renderer.dirty) {
+            // Draw some stuff to the entity buffer.
+            var wallCanvas = document.createElement("canvas");
+            entity.rendererPrivate.wallAlbedo = wallCanvas;
 
-      var viewportOffset = this.renderer.toScreenCoords(this.renderer.topLeft);
+            var wallCanvasSize =
+                this.renderer.toScreenCoords(
+                    new geometry.Vector2(entity.bbox.width, 2));
+            wallCanvas.width = wallCanvasSize.x;
+            wallCanvas.height = wallCanvasSize.y;
 
-      this.ctx.drawImage(buildingInteriorIllumination,
-                         viewportOffset.x - sOffset.x,
-                         viewportOffset.y - sOffset.y);
-    }
+            var wallContext = this.renderer.prepareContext(wallCanvas);
+            drawAutotileRectangle(this.renderer,
+                                  new geometry.Rectangle(0, 0,
+                                                         entity.bbox.width, 2),
+                                  sprites["building.wall"],
+                                  wallContext);
+          }
 
-    if (drawExterior && this.options.pass === "albedo") {
-      this.ctx.globalAlpha = 1 - t;
+          this.ctx.globalAlpha = 1 - t;
 
-      drawAutotileRectangle(this.renderer,
-                            new geometry.Rectangle(entity.bbox.left,
-                                                   entity.bbox.getBottom() - 2,
-                                                   entity.bbox.width,
-                                                   2),
-                            sprites["building.wall"],
-                            this.ctx);
+          var sOffset = this.renderer.toScreenCoords(
+              new geometry.Vector2(entity.bbox.left,
+                                   entity.bbox.getBottom() - 2));
+          this.ctx.drawImage(entity.rendererPrivate.wallAlbedo,
+                             sOffset.x, sOffset.y);
 
-      var halfHeight = this.renderer.toScreenCoords(
-          new geometry.Vector2(0, 1)).y / 2;
+          var halfHeight = this.renderer.toScreenCoords(
+              new geometry.Vector2(0, 1)).y / 2;
 
-      if (entity.doorLocation === 2) {
-        this.ctx.fillStyle = "black";
-        this.ctx.fillRect(doorSOffset.x, doorSOffset.y,
-                          GraphicsRenderer.TILE_SIZE, GraphicsRenderer.TILE_SIZE);
-      }
+          if (entity.doorLocation === entities.Directions.S) {
+            this.ctx.fillStyle = "black";
+            this.ctx.fillRect(doorSOffset.x, doorSOffset.y,
+                              GraphicsRenderer.TILE_SIZE,
+                              GraphicsRenderer.TILE_SIZE);
+          }
 
-      this.ctx.translate(0, -halfHeight);
-      sprites["building.red_roof_1"].render(this.renderer.resources, this.ctx,
-                                            this.renderer.elapsed);
+          this.ctx.translate(0, -halfHeight);
+          sprites["building.red_roof_1"].render(this.renderer.resources,
+                                                this.ctx,
+                                                this.renderer.elapsed);
+        }
+        break;
+
+      case "illumination":
+        if (drawInterior) {
+          // Compute interior illumination mask by excluding portions of the
+          // albedo buffer.
+          var scratch = this.renderer.ensureBackBuffer("scratch");
+
+          var scratchCtx = this.renderer.prepareContext(scratch);
+          scratchCtx.clearRect(0, 0,
+                               this.renderer.canvas.width,
+                               this.renderer.canvas.height);
+          scratchCtx.drawImage(this.renderer.ensureBackBuffer("entity"), 0, 0);
+
+          var sOffset = this.renderer.toScreenCoords(entity.location);
+
+          scratchCtx.save();
+          scratchCtx.globalCompositeOperation = "source-out";
+
+          var sOffset2 = this.renderer.toScreenCoords(entity.location.offset(
+              this.renderer.leftTop.negate()));
+          scratchCtx.translate(sOffset2.x, sOffset2.y);
+
+          var sBboxOffset = this.renderer.toScreenCoords(new geometry.Vector2(
+              entity.bbox.left, entity.bbox.top));
+          var sBboxSize = this.renderer.toScreenCoords(new geometry.Vector2(
+              entity.bbox.width, entity.bbox.height));
+
+          scratchCtx.fillStyle = "rgb(255, 255, 255)";
+          scratchCtx.fillRect(sBboxOffset.x, sBboxOffset.y,
+                              sBboxSize.x, sBboxSize.y);
+          scratchCtx.restore();
+
+          var viewportOffset = this.renderer.toScreenCoords(
+              this.renderer.leftTop);
+
+          this.ctx.drawImage(scratch,
+                             viewportOffset.x - sOffset.x,
+                             viewportOffset.y - sOffset.y);
+        }
+        break;
     }
 
     this.ctx.restore();
-
-    super.visitBuilding(entity);
   }
 }
 GraphicsRenderer.TILE_SIZE = 32;

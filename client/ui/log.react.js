@@ -121,7 +121,7 @@ export var Log = React.createClass({
       var commandName = parts[0].trim().toLowerCase();
       var rest = parts.slice(1).join(" ").trim();
 
-      if (!objects.hasOwnProp.call(COMMANDS, commandName)) {
+      if (!objects.has(COMMANDS, commandName)) {
         this.props.game.log.push(InfoMessageEntry({
           text: "No such command: " + commandName
         }))
@@ -159,7 +159,8 @@ export var Log = React.createClass({
                value={this.state.pendingMessage}
                ref="text"
                onKeyDown={this.onKeyDown}
-               placeholder="Chat message" />
+               placeholder="Chat message"
+               maxLength="100" />
       </div>
     </form>;
   }

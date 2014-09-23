@@ -13,29 +13,25 @@ class Realm(record.ProtobufRecord):
   PROTOBUF_TYPE = realm_pb2.Realm
   FIELDS = [
       record.Field("name", record.Scalar),
-      record.Field("size", geometry.Vector2),
+      record.Field("bbox", geometry.Rectangle),
   ]
 
   def __init__(self, *args, **kwargs):
     self.regions = None
     super().__init__(*args, **kwargs)
 
-  @property
-  def bounds(self):
-    return geometry.Rectangle(0, 0, self.size.x, self.size.y)
-
   def load_intersecting_regions(self, bounds):
-    left = max([Region.floor(bounds.left), 0])
-    top = max([Region.floor(bounds.top), 0])
-    right = min([Region.ceil(bounds.right), self.size.x])
-    bottom = min([Region.ceil(bounds.bottom), self.size.y])
+    left = Region.floor(max([bounds.left, self.bbox.left]))
+    top = Region.floor(max([bounds.top, self.bbox.top]))
+    right = Region.ceil(min([bounds.right, self.bbox.right]))
+    bottom = Region.ceil(min([bounds.bottom, self.bbox.bottom]))
 
     for y in range(top, bottom, Region.SIZE):
       for x in range(left, right, Region.SIZE):
           yield self.regions.load(geometry.Vector2(x, y))
 
   def is_terrain_passable_by(self, entity):
-    if not self.bounds.contains(entity.target_bounds):
+    if not self.bbox.contains(entity.target_bounds):
       return False
 
     try:
@@ -46,7 +42,7 @@ class Realm(record.ProtobufRecord):
     return all(region.is_terrain_passable_by(entity) for region in regions)
 
   def is_passable_by(self, entity):
-    if not self.bounds.contains(entity.target_bounds):
+    if not self.bbox.contains(entity.target_bounds):
       return False
 
     try:

@@ -2,10 +2,24 @@
 
 .interactions-menu {
   .window(#fff, #888, #fff);
+  position: absolute;
+
   text-shadow: none;
 
-  min-width: 200px;
-  max-width: 400px;
+  width: 300px;
+
+  &:before {
+    bottom: 100%;
+    left: 48px;
+    border: solid transparent;
+    content: " ";
+    height: 0;
+    width: 0;
+    position: absolute;
+    border-bottom-color: darken(#fff, 10%);
+    border-width: 6px;
+    margin-left: -6px;
+  }
 
   .content {
     flex-direction: column;

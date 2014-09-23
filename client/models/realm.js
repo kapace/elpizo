@@ -6,7 +6,7 @@ export class Realm {
   constructor(id, message) {
     this.id = id;
     this.name = message.name;
-    this.size = geometry.Vector2.fromProtobuf(message.size);
+    this.bbox = geometry.Rectangle.fromProtobuf(message.bbox);
 
     this.regions = {};
     this.entities = {};
@@ -24,7 +24,7 @@ export class Realm {
 
   getRegionAt(location) {
     var key = [location.x, location.y].join(",");
-    return objects.hasOwnProp.call(this.regions, key) ? this.regions[key] : null;
+    return objects.has(this.regions, key) ? this.regions[key] : null;
   }
 
   getAllRegions() {
@@ -51,18 +51,15 @@ export class Realm {
     return regions;
   }
 
-  getBounds() {
-    return new geometry.Rectangle(0, 0, this.size.x, this.size.y);
-  }
-
   getExtendedBounds() {
-    return new geometry.Rectangle(0, 0,
-                                  Region.ceil(this.size.x),
-                                  Region.ceil(this.size.y));
+    return geometry.Rectangle.fromCorners(Region.floor(this.bbox.left),
+                                          Region.floor(this.bbox.top),
+                                          Region.ceil(this.bbox.getRight()),
+                                          Region.ceil(this.bbox.getBottom()));
   }
 
   isTerrainPassableBy(entity) {
-    if (!this.getBounds().contains(entity.getTargetBounds())) {
+    if (!this.bbox.contains(entity.getTargetBounds())) {
       return false;
     }
 
@@ -98,7 +95,7 @@ export class Realm {
   }
 
   getEntity(id) {
-    return objects.hasOwnProp.call(this.entities, id) ? this.entities[id] : null;
+    return objects.has(this.entities, id) ? this.entities[id] : null;
   }
 
   getAllEntities() {
@@ -116,10 +113,14 @@ export class Region {
   constructor(location, message) {
     this.location = location;
     this.realmId = message.realmId;
-    this.layers = message.layers.map((layer) =>
-        new Layer(layer));
+    this.layers = message.layers.map((layer) => new Layer(layer));
     this.passabilities = new grid.Grid(Region.SIZE, Region.SIZE,
                                        message.passabilities);
+
+    // This is only so the renderer doesn't have to GC cached data.
+    // ONLY THE RENDERER SHOULD READ FROM THIS AND IT SHOULD BE CONSIDERED PART
+    // OF THE RENDERER.
+    this.rendererPrivate = {};
   }
 
   getKey() {

@@ -13,4 +13,4 @@ def on_chat(protocol, actor, message):
       (ns, name),
       packets_pb2.ChatPacket(target=message.target,
                              actor_name=actor.name,
-                             text=message.text))
+                             text=message.text[:100]))

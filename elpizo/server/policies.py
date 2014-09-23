@@ -42,7 +42,8 @@ class PlayerPolicy(object):
       # we're switching the player to a different protocol.
       last_protocol = self.server.bus.get(self.player.bus_key)
       last_protocol.send(None, packets_pb2.ErrorPacket(
-          text="Session collision."))
+          text="Session collision. You may have logged in from another " +
+               "location."))
       last_protocol.bind_policy(UnauthenticatedPolicy())
       last_protocol.transport.close()
       self.server.bus.remove(self.player.bus_key)

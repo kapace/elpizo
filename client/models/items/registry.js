@@ -13,7 +13,7 @@ items.Item.register(weapons.Dagger);
 items.Item.register(restorative.Carrot);
 
 export function makeItem(message) {
-  if (!objects.hasOwnProp.call(items.Item.REGISTRY, message.type)) {
+  if (!objects.has(items.Item.REGISTRY, message.type)) {
     return new items.Item(message);
   }
 

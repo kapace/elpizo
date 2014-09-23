@@ -1,6 +1,7 @@
 module geometry from "client/models/geometry";
 module itemRegistry from "client/models/items/registry";
 module packets from "client/protos/packets";
+module realm from "client/models/realm";
 module input from "client/util/input";
 module timing from "client/util/timing";
 
@@ -14,6 +15,11 @@ export class Entity extends timing.Timed {
     this.location = geometry.Vector3.fromProtobuf(message.location);
     this.bbox = geometry.Rectangle.fromProtobuf(message.bbox);
     this.direction = message.direction;
+
+    // This is only so the renderer doesn't have to GC cached data.
+    // ONLY THE RENDERER SHOULD READ FROM THIS AND IT SHOULD BE CONSIDERED PART
+    // OF THE RENDERER.
+    this.rendererPrivate = {};
   }
 
   getTitle() {
@@ -40,11 +46,7 @@ export class Entity extends timing.Timed {
     super.update(dt);
   }
 
-  getAdjacentInteractions() {
-    return [];
-  }
-
-  getIntersectingInteractions() {
+  getInteractions(me) {
     return [];
   }
 
@@ -68,7 +70,37 @@ export class Building extends Entity {
   constructor(id, message) {
     super(id, message);
     message = message[".Building.ext"];
+
     this.doorLocation = message.doorLocation;
+  }
+
+  getTitle() {
+    return "Building at " + this.location.toString();
+  }
+
+  getInteractions(me) {
+    var proximity = me.getBounds().distanceTo(this.getBounds());
+
+    var interactions = [{
+        title: "THIS ACTION DOES NOTHING AND IS ONLY FOR TESTING",
+        f: () => { }
+    }];
+
+    if (proximity <= 8) {
+      interactions.push({
+          title: "THIS ACTION APPEARS AT PROXIMITY 8",
+          f: () => { }
+      })
+    }
+
+    if (proximity <= 0) {
+      interactions.push({
+          title: "THIS ACTION APPEARS AT PROXIMITY 0",
+          f: () => { }
+      })
+    }
+
+    return interactions;
   }
 
   accept(visitor) {
@@ -112,8 +144,8 @@ export class Drop extends Entity {
     protocol.send(new packets.PickUpPacket({dropId: this.id}));
   }
 
-  getIntersectingInteractions() {
-    var interactions = super.getIntersectingInteractions();
+  getInteractions(me) {
+    var interactions = super.getInteractions();
 
     interactions.push({
         title: "Pick up",
@@ -141,6 +173,14 @@ export class Tree extends Entity {
     this.growthStage = message.growthStage;
   }
 
+  getGrowthStageName() {
+    return {
+        0: "seedling",
+        1: "sapling",
+        2: "mature"
+    }[this.growthStage];
+  }
+
   getTitle() {
     return {
         "oak": "Oak"
@@ -159,7 +199,7 @@ export class Tree extends Entity {
     return false;
   }
 
-  getAdjacentInteractions() {
+  getInteractions(me) {
     return [{
       title: "Cut",
       f: () => { }
@@ -168,18 +208,26 @@ export class Tree extends Entity {
 }
 
 export var Directions = {
-    N: 0,
-    W: 1,
-    S: 2,
-    E: 3
+    N:  0,
+    NW: 1,
+    W:  2,
+    SW: 3,
+    S:  4,
+    SE: 5,
+    E:  6,
+    NE: 7
 };
 
 export function getDirectionVector(d) {
   switch (d) {
-    case Directions.N: return new geometry.Vector3( 0, -1,  0);
-    case Directions.W: return new geometry.Vector3(-1,  0,  0);
-    case Directions.S: return new geometry.Vector3( 0,  1,  0);
-    case Directions.E: return new geometry.Vector3( 1,  0,  0);
+    case Directions.N:  return new geometry.Vector3( 0, -1,  0);
+    case Directions.NW: return new geometry.Vector3(-1, -1,  0);
+    case Directions.W:  return new geometry.Vector3(-1,  0,  0);
+    case Directions.SW: return new geometry.Vector3(-1,  1,  0);
+    case Directions.S:  return new geometry.Vector3( 0,  1,  0);
+    case Directions.SE: return new geometry.Vector3( 1,  1,  0);
+    case Directions.E:  return new geometry.Vector3( 1,  0,  0);
+    case Directions.NE: return new geometry.Vector3( 1, -1,  0);
   }
 }
 
@@ -239,8 +287,9 @@ export class Actor extends Entity {
     var moveTimer = this.getTimer("move");
 
     this.location = this.location
-        .offset(this.getDirectionVector().scale(
-            moveTimer.remaining * this.getSpeed()))
+        .offset(this.getDirectionVector()
+            .normalized()
+            .scale(moveTimer.remaining * this.getSpeed()))
         .map(Math.round);
     moveTimer.reset(0);
   }
@@ -259,7 +308,8 @@ export class Actor extends Entity {
 
     this.isMoving = true;
     this.finishMove();
-    moveTimer.reset(1 / this.getSpeed());
+    moveTimer.reset(1 / this.getSpeed() *
+                    this.getDirectionVector().magnitude());
   }
 
   stopMove() {
@@ -287,11 +337,15 @@ export class Actor extends Entity {
     // Round out the location if the movement timer is 0.
     if (moveTimer.isStopped()) {
       this.location = this.location
-          .offset(this.getDirectionVector().scale(lastRemaining * this.getSpeed()))
+          .offset(this.getDirectionVector()
+              .normalized()
+              .scale(lastRemaining * this.getSpeed()))
           .map(Math.round);
     } else {
       this.location = this.location
-          .offset(this.getDirectionVector().scale(dt * this.getSpeed()));
+          .offset(this.getDirectionVector()
+              .normalized()
+              .scale(dt * this.getSpeed()));
     }
 
     var deathTimer = this.getTimer("death");
@@ -311,7 +365,7 @@ export class Actor extends Entity {
 }
 
 Actor.BASE_SPEED = 4;
-Actor.TURN_TIME = 0.1;
+Actor.TURN_TIME = 0.01;
 
 export class Player extends Actor {
   accept(visitor) {
@@ -335,114 +389,8 @@ export class NPC extends Actor {
 }
 
 export class Avatar extends Player {
-  constructor(id, message) {
-    super(id, message);
-    this.interactions = [];
-    this.showInventory = false;
-  }
-
   accept(visitor) {
     visitor.visitAvatar(this);
-  }
-
-  doInteract(protocol) {
-    var intersecting = this.realm.getAllEntities().filter((entity) =>
-      entity.getBounds().intersect(this.getBounds()) !== null &&
-      this.realm.isTerrainPassableBy(this, this.getBounds(), this.direction) &&
-      entity !== this);
-
-    var adjacents = this.realm.getAllEntities().filter((entity) =>
-      entity.getBounds().intersect(this.getTargetBounds()) !== null &&
-      this.realm.isTerrainPassableBy(this, this.getTargetBounds(),
-                                     this.direction) &&
-      entity !== this);
-
-    // Check for interactions.
-    var interactions = [];
-    [].push.apply(interactions, intersecting.map((entity) => ({
-        entity: entity,
-        actions: entity.getIntersectingInteractions()
-    })).filter((group) => group.actions.length > 0));
-    [].push.apply(interactions, adjacents.map((entity) => ({
-        entity: entity,
-        actions: entity.getAdjacentInteractions()
-    })).filter((group) => group.actions.length > 0));
-
-    this.interactions = interactions;
-  }
-
-  doMove(protocol, direction) {
-    var didMove = false;
-    if (this.direction !== direction) {
-      // Send a turn packet.
-      this.turn(direction);
-      protocol.send(new packets.TurnPacket({direction: direction}));
-      this.getTimer("turn").reset(Actor.TURN_TIME);
-      return;
-    }
-
-    var targetLocation = this.getTargetLocation();
-    var targetBounds = this.bbox.offset(targetLocation);
-    var targetEntities = this.realm.getAllEntities().filter((entity) =>
-        (entity.getBounds().intersect(targetBounds) !== null ||
-         entity.getBounds().intersect(this.getBounds()) !== null) &&
-        entity !== this);
-
-    // Movement mode logic.
-    if (this.realm.isPassableBy(this, this.direction)) {
-      this.move();
-      didMove = true;
-
-      protocol.send(new packets.MovePacket({location: targetLocation}));
-
-      targetEntities.forEach((entity) =>
-        entity.onContact(protocol, this));
-    }
-    return didMove;
-  }
-
-  updateAsAvatar(dt, inputState, protocol) {
-    // Don't allow any avatar updates if there are any timers pending.
-    if (!this.areAllTimersStopped()) {
-      return;
-    }
-
-    if (inputState.stick(input.Key.Z)) {
-      this.doInteract(protocol);
-      return;
-    }
-
-    if (inputState.stick(input.Key.I)) {
-      this.interactions = [];
-      this.showInventory = !this.showInventory;
-      return;
-    }
-
-    if (inputState.stick(input.Key.ESCAPE)) {
-      this.interactions = [];
-      this.showInventory = false;
-      return;
-    }
-
-    // Check for movement.
-    var direction = inputState.held(input.Key.LEFT) ? Directions.W :
-                    inputState.held(input.Key.UP) ? Directions.N :
-                    inputState.held(input.Key.RIGHT) ? Directions.E :
-                    inputState.held(input.Key.DOWN) ? Directions.S :
-                    null;
-
-    var didMove = false;
-
-    if (direction !== null) {
-      this.interactions = [];
-      didMove = this.doMove(protocol, direction);
-    }
-
-    if (!didMove && this.isMoving) {
-      // We've stopped moving entirely.
-      this.isMoving = false;
-      protocol.send(new packets.StopMovePacket());
-    }
   }
 }
 

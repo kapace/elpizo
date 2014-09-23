@@ -1,5 +1,6 @@
 /** @jsx React.DOM */
 
+module Modernizr from "browsernizr";
 module React from "react/react-with-addons";
 
 module input from "client/util/input";
@@ -7,35 +8,13 @@ module input from "client/util/input";
 export var InteractionsMenu = React.createClass({
   getInitialState: function () {
     return {
-      actionIndex: [0, 0]
+      actionIndex: null
     };
-  },
-
-  componentWillMount: function () {
-    this.setState({interactions: this.props.me.interactions});
-  },
-
-  componentDidMount: function () {
-    // HACK: We have to set focus once the transition has completed, otherwise
-    // it completes the transition.
-    window.setTimeout(() => {
-      this.getDOMNode().querySelector("input[type='radio']:checked").focus();
-    }, 0.2 * 1000);
   },
 
   onSubmit: function (e) {
     e.preventDefault();
     this.runAction(this.state.actionIndex);
-  },
-
-  onKeyDown: function (e) {
-    e.stopPropagation();
-
-    if (e.keyCode === input.Key.Z) {
-      this.onSubmit(e);
-    } else if (e.keyCode === input.Key.ESCAPE) {
-      this.dismiss();
-    }
   },
 
   setAction: function (actionIndex) {
@@ -45,19 +24,28 @@ export var InteractionsMenu = React.createClass({
   runAction: function (actionIndex) {
     if (actionIndex !== null) {
       var [i, j] = actionIndex;
-      var action = this.state.interactions[i].actions[j];
-      action.f(this.props.protocol, this.props.me, this.props.log);
+      var action = this.props.interactions[i].actions[j];
+      action.f(this.props.game.protocol, this.props.me, this.props.game.log);
     }
     this.dismiss();
   },
 
   dismiss: function () {
-    this.props.me.interactions = [];
+    this.props.renderer.removeComponent("interactions");
   },
 
   render: function () {
-    var interactions = this.state.interactions.map((group, i) => {
-      var actions = group.actions.map((action, j) => {
+    var renderer = this.props.renderer;
+
+    var position = renderer.toScreenCoords(this.props.location);
+
+    var style = {};
+    style[Modernizr.prefixed("transform")] =
+      "translate(" + (position.x - 32 + "px") + "," +
+                     (position.y + 32 + 8 + "px") + ")";
+
+    var interactions = this.props.entities.map((entity, i) => {
+      var actions = entity.getInteractions(this.props.me).map((action, j) => {
         var checked = false;
         if (this.state.actionIndex !== null) {
           var [currentI, currentJ] = this.state.actionIndex;
@@ -77,21 +65,18 @@ export var InteractionsMenu = React.createClass({
       });
 
       return <li key={i} className="action-group">
-        <div className="heading">{group.entity.getTitle()}</div>
+        <div className="heading">{entity.getTitle()}</div>
         <ul>{actions}</ul>
       </li>;
     });
 
-    return <div className="center transitionable"
-                onTransitionend={this.onTransitionEnd}>
-      <form className="interactions-menu"
-            onSubmit={this.onSubmit}
-            onKeyDown={this.onKeyDown}>
+    return <div style={style}>
+      <form className="interactions-menu transitionable"
+            onSubmit={this.onSubmit}>
         <div className="content">
           <ul>{interactions}</ul>
           <input type="radio" name="item" id="interactions-menu-cancel"
-                 onChange={this.setAction.bind(this, null)}
-                 checked={this.state.actionIndex === null} />
+                 onChange={this.setAction.bind(this, null)} />
           <label htmlFor="interactions-menu-cancel" className="cancel"
                  onClick={this.runAction.bind(this, null)}>Cancel</label>
           <button type="submit" tabIndex="-1"></button>
